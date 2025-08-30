@@ -1,8 +1,10 @@
 # WPGraphQL Content Filter Plugin
 
-A WordPress plugin that filters and sanitizes content in WPGraphQL and REST API responses based on configurable settings. Multisite-compatible, enabling a site administrator to create default settings, and for those settings to be overriden on a site level.
+A WordPress plugin that cleans and filters HTML content in both WPGraphQL and REST API responses according to customizable settings. The plugin supports WordPress multisite installations, allowing network administrators to set default filtering rules that individual site administrators can then customize for their specific needs.
 
-Created with the Claude 4 Sonnet LLM.
+This plugin is particularly valuable in two scenarios: when migrating from a traditional themed WordPress site to a headless architecture, and when a themed WordPress site needs to serve clean content to external applications via API. In both cases, existing content may contain unwanted HTML markup that needs to be filtered or sanitized before being consumed by other systems.
+
+The plugin was developed using Claude 4 Sonnet.
 
 ## Features
 
@@ -27,17 +29,9 @@ Created with the Claude 4 Sonnet LLM.
 
 ## Installation
 
-### From WordPress.org (Recommended)
-
-1. Go to your WordPress admin dashboard
-2. Navigate to Plugins > Add New
-3. Search for "WPGraphQL Content Filter"
-4. Click "Install Now" and then "Activate"
-5. Go to Settings > GraphQL Content Filter to configure
-
 ### Manual Installation
 
-1. Download the plugin from [WordPress.org](https://wordpress.org/plugins/wpgraphql-content-filter/)
+1. Download the plugin files
 2. Upload the plugin files to `/wp-content/plugins/wpgraphql-content-filter/` directory
 3. Activate the plugin through the 'Plugins' menu in WordPress
 4. Go to Settings > GraphQL Content Filter to configure your filtering options

@@ -48,10 +48,28 @@ WPGraphQL Content Filter is a powerful WordPress plugin that automatically filte
 
 == Installation ==
 
-1. Upload the plugin files to `/wp-content/plugins/wpgraphql-content-filter/` directory
-2. Activate the plugin through the 'Plugins' menu in WordPress
-3. Go to Settings > GraphQL Content Filter to configure your filtering options
-4. Choose your filter mode and save settings
+**Recommended Installation (Git Clone):**
+
+1. Navigate to your WordPress plugins directory:
+   ```
+   cd /path/to/your/wordpress/wp-content/plugins/
+   ```
+
+2. Clone the repository:
+   ```
+   git clone https://github.com/gokepelemo/wpgraphql-content-filter.git
+   ```
+
+3. Activate the plugin through the 'Plugins' menu in WordPress
+4. Go to Settings > GraphQL Content Filter to configure your filtering options
+5. Choose your filter mode and save settings
+
+**Alternative Manual Installation:**
+
+1. Download the plugin files from the GitHub repository
+2. Upload the plugin files to `/wp-content/plugins/wpgraphql-content-filter/` directory
+3. Activate the plugin through the 'Plugins' menu in WordPress
+4. Configure as above
 
 **For GraphQL Support:**
 Install and activate the WPGraphQL plugin for GraphQL functionality. REST API filtering works without additional plugins.
