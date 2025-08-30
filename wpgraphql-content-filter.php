@@ -2,8 +2,8 @@
 /**
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
- * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists.
- * Version: 1.0.5
+ * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
+ * Version: 1.0.6
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -11,6 +11,7 @@
  * Requires at least: 5.0
  * Tested up to: 6.6
  * Requires PHP: 7.4
+ * Requires Plugins: wp-graphql
  * Text Domain: wpgraphql-content-filter
  * Domain Path: /languages
  *
@@ -32,7 +33,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.5');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.6');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -54,6 +55,91 @@ if (!defined('WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS')) {
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION')) {
     define('WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION', 'wpgraphql_content_filter_version');
 }
+
+/**
+ * Check for WPGraphQL dependency
+ */
+function wpgraphql_content_filter_check_dependencies() {
+    // Check if WPGraphQL is active
+    if (!class_exists('WPGraphQL') && !function_exists('graphql')) {
+        add_action('admin_notices', 'wpgraphql_content_filter_dependency_notice');
+        add_action('network_admin_notices', 'wpgraphql_content_filter_dependency_notice');
+        
+        // Deactivate the plugin if WPGraphQL is not available
+        add_action('admin_init', 'wpgraphql_content_filter_deactivate_self');
+        
+        return false;
+    }
+    
+    // Check WPGraphQL version if available
+    if (class_exists('WPGraphQL') && defined('WPGRAPHQL_VERSION')) {
+        if (version_compare(WPGRAPHQL_VERSION, '1.0.0', '<')) {
+            add_action('admin_notices', 'wpgraphql_content_filter_version_notice');
+            add_action('network_admin_notices', 'wpgraphql_content_filter_version_notice');
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+/**
+ * Display dependency notice
+ */
+function wpgraphql_content_filter_dependency_notice() {
+    $class = 'notice notice-error';
+    $message = sprintf(
+        /* translators: %1$s: Plugin name, %2$s: Required plugin name */
+        __('%1$s requires %2$s to be installed and activated. Please install and activate %2$s first.', 'wpgraphql-content-filter'),
+        '<strong>WPGraphQL Content Filter</strong>',
+        '<strong>WPGraphQL</strong>'
+    );
+    
+    printf('<div class="%1$s"><p>%2$s</p></div>', esc_attr($class), wp_kses_post($message));
+}
+
+/**
+ * Display version compatibility notice
+ */
+function wpgraphql_content_filter_version_notice() {
+    $class = 'notice notice-warning';
+    $current_version = defined('WPGRAPHQL_VERSION') ? WPGRAPHQL_VERSION : 'unknown';
+    $message = sprintf(
+        /* translators: %1$s: Plugin name, %2$s: Required plugin name, %3$s: Current version, %4$s: Required version */
+        __('%1$s requires %2$s version %4$s or higher. You are currently running version %3$s. Please update %2$s.', 'wpgraphql-content-filter'),
+        '<strong>WPGraphQL Content Filter</strong>',
+        '<strong>WPGraphQL</strong>',
+        $current_version,
+        '1.0.0'
+    );
+    
+    printf('<div class="%1$s"><p>%2$s</p></div>', esc_attr($class), wp_kses_post($message));
+}
+
+/**
+ * Deactivate this plugin if dependencies are not met
+ */
+function wpgraphql_content_filter_deactivate_self() {
+    if (!class_exists('WPGraphQL') && !function_exists('graphql')) {
+        deactivate_plugins(plugin_basename(__FILE__));
+        
+        if (isset($_GET['activate'])) {
+            unset($_GET['activate']);
+        }
+    }
+}
+
+/**
+ * Initialize plugin only if dependencies are met
+ */
+function wpgraphql_content_filter_init() {
+    if (wpgraphql_content_filter_check_dependencies()) {
+        WPGraphQL_Content_Filter::getInstance();
+    }
+}
+
+// Initialize on plugins_loaded to ensure all plugins are loaded
+add_action('plugins_loaded', 'wpgraphql_content_filter_init');
 
 /**
  * Main plugin class
@@ -360,7 +446,7 @@ class WPGraphQL_Content_Filter {
         $this->clear_options_cache();
         
         // Version-specific upgrade tasks can be added here
-        if (version_compare($old_version, '1.0.5', '<')) {
+        if (version_compare($old_version, '1.0.6', '<')) {
             // Tasks for upgrading to 1.0.5
             if (function_exists('wp_cache_flush')) {
                 wp_cache_flush();
@@ -1622,16 +1708,6 @@ class WPGraphQL_Content_Filter {
         return $links;
     }
 }
-
-// Initialize the plugin
-if (!function_exists('wpgraphql_content_filter_init')) {
-    function wpgraphql_content_filter_init() {
-        WPGraphQL_Content_Filter::getInstance();
-    }
-}
-
-// Hook plugin initialization
-add_action('plugins_loaded', 'wpgraphql_content_filter_init');
 
 // Register activation/deactivation hooks
 register_activation_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'activate']);

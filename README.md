@@ -57,8 +57,10 @@ Created with the Claude 4 Sonnet LLM.
 
 - WordPress 5.0+
 - PHP 7.4+
-- WPGraphQL plugin (for GraphQL filtering)
+- **WPGraphQL plugin** (required for GraphQL filtering functionality)
 - Custom post types must be registered with WPGraphQL to be filtered in GraphQL (REST API works with all public post types)
+
+**Note:** While the plugin can function without WPGraphQL for REST API filtering only, it is designed primarily for WPGraphQL integration and will display notices if WPGraphQL is not installed.
 
 ## Usage
 

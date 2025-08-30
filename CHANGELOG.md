@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.6] - 2025-08-30
+
+### Added
+
+- **WPGraphQL Dependency Check**: Plugin now requires WPGraphQL to be installed and activated
+- **Version Compatibility Check**: Ensures WPGraphQL version 1.0.0 or higher is installed
+- **Enhanced Error Handling**: Automatic plugin deactivation if dependencies are not met
+- **User-Friendly Notices**: Clear admin notices explaining dependency requirements
+
+### Changed
+
+- **Plugin Description**: Updated to clearly indicate WPGraphQL requirement
+- **Plugin Headers**: Added "Requires Plugins: wp-graphql" header for WordPress 6.5+ compatibility
+- **Initialization Logic**: Plugin only initializes when dependencies are satisfied
+
+### Security
+
+- **Safe Deactivation**: Plugin safely deactivates itself if WPGraphQL is not available
+
 ## [1.0.5] - 2025-08-30
 
 ### Added
