@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 1.0.6
+ * Version: 1.0.7
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -33,7 +33,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.6');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.7');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -166,13 +166,16 @@ class WPGraphQL_Content_Filter {
     private function __construct() {
         add_action('init', [$this, 'init']);
         
-        // Add admin hooks based on multisite status
+        // Add admin hooks based on context
         if (is_multisite()) {
             add_action('network_admin_menu', [$this, 'add_network_admin_menu']);
             add_action('network_admin_edit_wpgraphql_content_filter_network', [$this, 'save_network_options']);
             add_action('admin_menu', [$this, 'add_site_admin_menu']);
         } else {
             add_action('admin_menu', [$this, 'add_admin_menu']);
+            // Also add network admin menu for non-multisite installations (useful for mu-plugins)
+            add_action('network_admin_menu', [$this, 'add_network_admin_menu']);
+            add_action('network_admin_edit_wpgraphql_content_filter_network', [$this, 'save_network_options']);
         }
         
         add_action('admin_init', [$this, 'admin_init']);
@@ -231,7 +234,7 @@ class WPGraphQL_Content_Filter {
                 'enforce_network_settings' => false
             ]);
             
-            add_site_option('wpgraphql_content_filter_network_options', $network_defaults);
+            add_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_defaults);
             
             // Initialize all existing sites with proper sync structure
             $instance = self::getInstance();
@@ -319,7 +322,7 @@ class WPGraphQL_Content_Filter {
      * Handle site option updates to clear cache
      */
     public function on_site_option_updated($option_name, $old_value, $new_value) {
-        if ($option_name === 'wpgraphql_content_filter_network_options') {
+        if ($option_name === WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS) {
             $this->clear_options_cache(); // Clear all caches
         }
     }
@@ -339,7 +342,7 @@ class WPGraphQL_Content_Filter {
     public static function uninstall() {
         if (is_multisite()) {
             // Remove network options
-            delete_site_option('wpgraphql_content_filter_network_options');
+            delete_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS);
             
             // Remove options from all sites
             $sites = get_sites();
@@ -424,6 +427,27 @@ class WPGraphQL_Content_Filter {
         
         // Check for plugin upgrades
         $this->check_plugin_upgrade();
+        
+        // Ensure network options are initialized
+        $this->maybe_initialize_network_options();
+    }
+    
+    /**
+     * Initialize network options if they don't exist
+     */
+    private function maybe_initialize_network_options() {
+        // Check if network options exist
+        $existing_options = get_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, false);
+        
+        if ($existing_options === false) {
+            // Initialize network options with defaults
+            $network_defaults = array_merge($this->get_default_options(), [
+                'allow_site_overrides' => true,
+                'enforce_network_settings' => false
+            ]);
+            
+            add_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_defaults);
+        }
     }
     
     /**
@@ -446,7 +470,7 @@ class WPGraphQL_Content_Filter {
         $this->clear_options_cache();
         
         // Version-specific upgrade tasks can be added here
-        if (version_compare($old_version, '1.0.6', '<')) {
+        if (version_compare($old_version, '1.0.7', '<')) {
             // Tasks for upgrading to 1.0.5
             if (function_exists('wp_cache_flush')) {
                 wp_cache_flush();
