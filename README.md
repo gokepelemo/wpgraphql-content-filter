@@ -243,9 +243,106 @@ add_filter('wpgraphql_content_filter_options', function($options) {
 
 ## Changelog
 
+### 1.0.9 - 2025-08-30
+
+**Enhanced UI Design**
+
+- **Enhanced:**
+  - Consistent UI Design: REST API setting now prominently displayed at the top of BOTH site-level and network-level admin pages
+  - Site-Level Admin Improvements: Added dedicated "API Targets" section with enhanced visual styling for REST API setting
+  - Better Organization: Clear visual separation between API configuration and content filtering settings
+  - Enhanced Descriptions: More detailed explanations about the difference between REST API and WPGraphQL filtering
+  - Visual Hierarchy: Improved section headers, styling, and layout consistency across both admin interfaces
+
+- **Added:**
+  - Custom REST API Callback: New dedicated callback method for prominent REST API setting display on site-level admin
+  - Section Headers: Clear visual organization with "API Targets" and "Content Filtering Settings" sections
+  - Enhanced Styling: Background highlighting, larger checkboxes, and improved typography for important settings
+
+### 1.0.8 - 2025-08-30
+
+**Network Admin Settings Enhancement**
+
+- **Enhanced:**
+  - Network Admin Settings: All specific settings (Apply to Content Field, Apply to Excerpt Field, Apply to REST API, Preserve Line Breaks, etc.) are now fully configurable at the network level for network-wide defaults
+  - Improved UI Layout: Restructured settings page with "Apply to REST API" prominently positioned at the top as a separate API target section
+  - Better Visual Hierarchy: REST API setting now clearly distinguished from content field settings with enhanced styling and clearer labeling
+  - Complete Settings Parity: Network admin now has complete feature parity with site-level settings
+
+- **Added:**
+  - API Targets Section: New dedicated section for API-related settings with clear visual separation
+  - Enhanced Descriptions: More detailed explanations for REST API functionality
+
+### 1.0.7 - 2025-08-30
+
+**Network Admin Access Fixes**
+
+- **Fixed:**
+  - Network Admin Access: Fixed network-level settings not being accessible in network admin
+  - Network Options Initialization: Added automatic initialization of network options when not present
+  - Admin Menu Registration: Improved admin menu registration for both multisite and single-site installations
+  - Constants Usage: Updated remaining hardcoded option names to use constants
+
+- **Enhanced:**
+  - Cross-Platform Compatibility: Network admin settings now available in both multisite and single-site WordPress
+  - Mu-Plugin Support: Better support for installations where this is used as a must-use plugin
+  - Option Management: More robust option handling and initialization
+
+### 1.0.6 - 2025-08-30
+
+**WPGraphQL Dependency Management**
+
+- **Added:**
+  - WPGraphQL Dependency Check: Plugin now requires WPGraphQL to be installed and activated
+  - Version Compatibility Check: Ensures WPGraphQL version 1.0.0 or higher is installed
+  - Enhanced Error Handling: Automatic plugin deactivation if dependencies are not met
+  - User-Friendly Notices: Clear admin notices explaining dependency requirements
+
+- **Changed:**
+  - Plugin Description: Updated to clearly indicate WPGraphQL requirement
+  - Plugin Headers: Added "Requires Plugins: wp-graphql" header for WordPress 6.5+ compatibility
+  - Initialization Logic: Plugin only initializes when dependencies are satisfied
+
+- **Security:**
+  - Safe Deactivation: Plugin safely deactivates itself if WPGraphQL is not available
+
+### 1.0.5 - 2025-08-30
+
+**Plugin Action Links & REST API Control**
+
+- **Added:**
+  - Plugin Action Links: Added "Settings" links to the Installed Plugins page for easier access to plugin settings
+  - REST API Control: Added option to enable/disable content filtering for WordPress REST API
+  - Enhanced UI: Plugin settings are now directly accessible from both regular and network admin plugin pages
+
+- **Changed:**
+  - REST API filtering is now optional and can be controlled via plugin settings
+  - Plugin action links provide direct access to settings from the Plugins page
+
+- **Optimized:**
+  - Code Constants: Added constants for option names to reduce repetition and improve maintainability
+  - Helper Methods: Created `get_site_data()` helper method to reduce duplicate database calls
+  - Version Consistency: Fixed version number consistency between plugin header and internal constants
+  - Performance: Optimized option retrieval patterns throughout the codebase
+
+### 1.0.4 - 2025-08-30
+
+**Admin Menu Fixes**
+
+- **Fixed:**
+  - Admin Menu Visibility: Fixed issue where admin menus weren't showing properly in multisite environments
+  - Settings Registration: Simplified logic for when site-level settings should be available
+  - Network Settings Access: Ensured network admin settings are always accessible when appropriate
+  - Site Override Logic: Fixed overly restrictive conditions that prevented site menus from appearing
+
+- **Changed:**
+  - Simplified admin menu and settings registration logic to be more permissive by default
+  - Site-level settings now show unless network settings are explicitly enforced
+  - Removed complex logic that was preventing proper menu display
+
 ### 1.0.3 - 2025-08-30
 
-**Network Settings Synchronization & Enhanced Multisite Support**
+**Enhanced Multisite Management**
 
 - **Added:**
   - Network settings automatically sync to all sites when changed
