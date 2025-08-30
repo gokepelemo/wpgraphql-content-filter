@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.9] - 2025-08-30
+
+### Enhanced
+
+- **Consistent UI Design**: REST API setting now prominently displayed at the top of BOTH site-level and network-level admin pages
+- **Site-Level Admin Improvements**: Added dedicated "API Targets" section with enhanced visual styling for REST API setting
+- **Better Organization**: Clear visual separation between API configuration and content filtering settings
+- **Enhanced Descriptions**: More detailed explanations about the difference between REST API and WPGraphQL filtering
+- **Visual Hierarchy**: Improved section headers, styling, and layout consistency across both admin interfaces
+
+### Added
+
+- **Custom REST API Callback**: New dedicated callback method for prominent REST API setting display on site-level admin
+- **Section Headers**: Clear visual organization with "API Targets" and "Content Filtering Settings" sections
+- **Enhanced Styling**: Background highlighting, larger checkboxes, and improved typography for important settings
+
+## [1.0.8] - 2025-08-30
+
+### Enhanced
+
+- **Network Admin Settings**: All specific settings (Apply to Content Field, Apply to Excerpt Field, Apply to REST API, Preserve Line Breaks, etc.) are now fully configurable at the network level for network-wide defaults
+- **Improved UI Layout**: Restructured settings page with "Apply to REST API" prominently positioned at the top as a separate API target section
+- **Better Visual Hierarchy**: REST API setting now clearly distinguished from content field settings with enhanced styling and clearer labeling
+- **Complete Settings Parity**: Network admin now has complete feature parity with site-level settings
+
+### Added
+
+- **API Targets Section**: New dedicated section for API-related settings with clear visual separation
+- **Enhanced Descriptions**: More detailed explanations for REST API functionality
+
 ## [1.0.7] - 2025-08-30
 
 ### Fixed

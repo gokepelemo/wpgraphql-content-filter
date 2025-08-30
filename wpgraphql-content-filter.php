@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 1.0.7
+ * Version: 1.0.9
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -33,7 +33,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.7');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.9');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -902,6 +902,15 @@ class WPGraphQL_Content_Filter {
             'wpgraphql-content-filter'
         );
         
+        // Apply to REST API (with special callback for prominence) - FIRST
+        add_settings_field(
+            'apply_to_rest_api',
+            __('WordPress REST API', 'wpgraphql-content-filter'),
+            [$this, 'rest_api_callback'],
+            'wpgraphql-content-filter',
+            'wpgraphql_content_filter_section'
+        );
+        
         // Filter Mode
         add_settings_field(
             'filter_mode',
@@ -929,16 +938,6 @@ class WPGraphQL_Content_Filter {
             'wpgraphql-content-filter',
             'wpgraphql_content_filter_section',
             ['field' => 'apply_to_excerpt', 'description' => 'Filter the excerpt field']
-        );
-        
-        // Apply to REST API
-        add_settings_field(
-            'apply_to_rest_api',
-            __('Apply to REST API', 'wpgraphql-content-filter'),
-            [$this, 'checkbox_callback'],
-            'wpgraphql-content-filter',
-            'wpgraphql_content_filter_section',
-            ['field' => 'apply_to_rest_api', 'description' => 'Enable content filtering for WordPress REST API responses']
         );
         
         // Preserve Line Breaks
@@ -1013,7 +1012,16 @@ class WPGraphQL_Content_Filter {
      * Settings section callback
      */
     public function settings_section_callback() {
-        echo '<p>' . __('Configure how content is filtered in WPGraphQL responses.', 'wpgraphql-content-filter') . '</p>';
+        echo '<p>' . __('Configure how content is filtered in WPGraphQL and REST API responses.', 'wpgraphql-content-filter') . '</p>';
+        ?>
+        <div style="margin: 15px 0; padding: 0; border-bottom: 1px solid #c3c4c7;"></div>
+        <h3 style="margin: 15px 0 5px 0; font-size: 16px; color: #1d2327;">
+            <?php esc_html_e('API Targets', 'wpgraphql-content-filter'); ?>
+        </h3>
+        <p style="margin: 0 0 15px 0; color: #646970; font-size: 13px;">
+            <?php esc_html_e('Choose which APIs should have content filtering applied.', 'wpgraphql-content-filter'); ?>
+        </p>
+        <?php
     }
     
     /**
@@ -1023,6 +1031,14 @@ class WPGraphQL_Content_Filter {
         $options = $this->get_options();
         $current = $options['filter_mode'];
         ?>
+        <div style="margin: 20px 0 10px 0; padding: 15px 0 0 0; border-top: 1px solid #c3c4c7;">
+            <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #1d2327;">
+                <?php esc_html_e('Content Filtering Settings', 'wpgraphql-content-filter'); ?>
+            </h3>
+            <p style="margin: 0 0 15px 0; color: #646970; font-size: 13px;">
+                <?php esc_html_e('Configure how HTML content should be processed when filtering is enabled.', 'wpgraphql-content-filter'); ?>
+            </p>
+        </div>
         <select name="wpgraphql_content_filter_options[filter_mode]" id="filter_mode">
             <option value="none" <?php selected($current, 'none'); ?>><?php _e('None (No filtering)', 'wpgraphql-content-filter'); ?></option>
             <option value="strip_all" <?php selected($current, 'strip_all'); ?>><?php _e('Strip All HTML', 'wpgraphql-content-filter'); ?></option>
@@ -1047,6 +1063,39 @@ class WPGraphQL_Content_Filter {
             toggleOptions();
         });
         </script>
+        <?php
+    }
+    
+    /**
+     * REST API callback - Special prominent display for REST API setting
+     */
+    public function rest_api_callback() {
+        $options = $this->get_options();
+        $checked = isset($options['apply_to_rest_api']) ? $options['apply_to_rest_api'] : false;
+        $override_info = $this->get_override_status('apply_to_rest_api');
+        ?>
+        <div style="background-color: #f9f9f9; border: 1px solid #c3c4c7; padding: 15px; margin: 10px 0; border-radius: 4px;">
+            <h4 style="margin: 0 0 10px 0; color: #1d2327; font-size: 14px;">
+                <?php esc_html_e('API Target Configuration', 'wpgraphql-content-filter'); ?>
+            </h4>
+            <label style="display: flex; align-items: center; font-weight: 600; font-size: 14px;">
+                <input type="checkbox" 
+                       name="wpgraphql_content_filter_options[apply_to_rest_api]" 
+                       value="1" 
+                       <?php checked($checked); ?> 
+                       style="margin-right: 10px; transform: scale(1.3);" />
+                <?php esc_html_e('Enable content filtering for WordPress REST API responses', 'wpgraphql-content-filter'); ?>
+            </label>
+            <p class="description" style="margin: 8px 0 0 0; font-style: italic; color: #646970; line-height: 1.4;">
+                <?php esc_html_e('When enabled, the content filter will be applied to REST API responses (e.g., /wp-json/wp/v2/posts). This is separate from WPGraphQL filtering, which is always enabled when WPGraphQL is active.', 'wpgraphql-content-filter'); ?>
+            </p>
+            <?php if ($override_info['is_overridden']): ?>
+                <p class="description" style="margin: 8px 0 0 0; color: #d63638; font-weight: 500;">
+                    <span class="dashicons dashicons-admin-network" style="font-size: 16px; vertical-align: middle;"></span>
+                    <?php echo esc_html($override_info['message']); ?>
+                </p>
+            <?php endif; ?>
+        </div>
         <?php
     }
     
@@ -1472,12 +1521,47 @@ class WPGraphQL_Content_Filter {
      */
     public function render_filter_settings($options, $context = 'site') {
         $prefix = ($context === 'network') ? '' : 'wpgraphql_content_filter_options';
+        $name_prefix = $context === 'network' ? '' : $prefix . '[%s]';
+        
+        // Helper function to get input name
+        if ($context === 'network') {
+            $get_input_name = function($field) {
+                return $field;
+            };
+        } else {
+            $get_input_name = function($field) use ($prefix) {
+                return $prefix . '[' . $field . ']';
+            };
+        }
         ?>
+        <!-- API Targets Section -->
+        <h3><?php esc_html_e('API Targets', 'wpgraphql-content-filter'); ?></h3>
+        <table class="form-table" style="border-bottom: 1px solid #c3c4c7; margin-bottom: 20px; padding-bottom: 15px;">
+            <!-- Apply to REST API -->
+            <tr style="background-color: #f9f9f9;">
+                <th scope="row" style="background-color: #f9f9f9;">
+                    <strong><?php esc_html_e('WordPress REST API', 'wpgraphql-content-filter'); ?></strong>
+                </th>
+                <td style="background-color: #f9f9f9;">
+                    <label style="display: flex; align-items: center; font-weight: 600;">
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('apply_to_rest_api')); ?>" value="1" <?php checked(!empty($options['apply_to_rest_api'])); ?> style="margin-right: 8px; transform: scale(1.2);" />
+                        <?php esc_html_e('Enable content filtering for WordPress REST API responses', 'wpgraphql-content-filter'); ?>
+                    </label>
+                    <p class="description" style="margin-top: 8px; font-style: italic; color: #646970;">
+                        <?php esc_html_e('When enabled, the content filter will be applied to REST API responses (e.g., /wp-json/wp/v2/posts). This is separate from WPGraphQL filtering.', 'wpgraphql-content-filter'); ?>
+                    </p>
+                </td>
+            </tr>
+        </table>
+        
+        <!-- Content Filtering Settings -->
+        <h3><?php esc_html_e('Content Filtering Settings', 'wpgraphql-content-filter'); ?></h3>
         <table class="form-table">
+            <!-- Filter Mode -->
             <tr>
                 <th scope="row"><?php esc_html_e('Filter Mode', 'wpgraphql-content-filter'); ?></th>
                 <td>
-                    <select name="<?php echo $context === 'network' ? 'filter_mode' : $prefix . '[filter_mode]'; ?>" id="filter_mode">
+                    <select name="<?php echo esc_attr($get_input_name('filter_mode')); ?>" id="filter_mode">
                         <option value="none" <?php selected($options['filter_mode'], 'none'); ?>><?php esc_html_e('None (No filtering)', 'wpgraphql-content-filter'); ?></option>
                         <option value="strip_all" <?php selected($options['filter_mode'], 'strip_all'); ?>><?php esc_html_e('Strip All HTML', 'wpgraphql-content-filter'); ?></option>
                         <option value="markdown" <?php selected($options['filter_mode'], 'markdown'); ?>><?php esc_html_e('Convert to Markdown', 'wpgraphql-content-filter'); ?></option>
@@ -1486,8 +1570,132 @@ class WPGraphQL_Content_Filter {
                     <p class="description"><?php esc_html_e('Choose how to filter content in API responses.', 'wpgraphql-content-filter'); ?></p>
                 </td>
             </tr>
-            <!-- Add more filter settings as needed -->
+            
+            <!-- Apply to Content Field -->
+            <tr>
+                <th scope="row"><?php esc_html_e('Apply to Content Field', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('apply_to_content')); ?>" value="1" <?php checked(!empty($options['apply_to_content'])); ?> />
+                        <?php esc_html_e('Filter the main content field', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <!-- Apply to Excerpt Field -->
+            <tr>
+                <th scope="row"><?php esc_html_e('Apply to Excerpt Field', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('apply_to_excerpt')); ?>" value="1" <?php checked(!empty($options['apply_to_excerpt'])); ?> />
+                        <?php esc_html_e('Filter the excerpt field', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <!-- Preserve Line Breaks -->
+            <tr>
+                <th scope="row"><?php esc_html_e('Preserve Line Breaks', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('preserve_line_breaks')); ?>" value="1" <?php checked(!empty($options['preserve_line_breaks'])); ?> />
+                        <?php esc_html_e('Convert block elements to line breaks', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <!-- Markdown Conversion Options -->
+            <tr class="markdown-option">
+                <th scope="row"><?php esc_html_e('Convert Headings to Markdown', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('convert_headings')); ?>" value="1" <?php checked(!empty($options['convert_headings'])); ?> />
+                        <?php esc_html_e('Convert H1-H6 tags to # syntax', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <tr class="markdown-option">
+                <th scope="row"><?php esc_html_e('Convert Links to Markdown', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('convert_links')); ?>" value="1" <?php checked(!empty($options['convert_links'])); ?> />
+                        <?php esc_html_e('Convert &lt;a&gt; tags to [text](url) syntax', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <tr class="markdown-option">
+                <th scope="row"><?php esc_html_e('Convert Lists to Markdown', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('convert_lists')); ?>" value="1" <?php checked(!empty($options['convert_lists'])); ?> />
+                        <?php esc_html_e('Convert &lt;ul&gt;/&lt;ol&gt; to - syntax', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <tr class="markdown-option">
+                <th scope="row"><?php esc_html_e('Convert Emphasis to Markdown', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('convert_emphasis')); ?>" value="1" <?php checked(!empty($options['convert_emphasis'])); ?> />
+                        <?php esc_html_e('Convert &lt;strong&gt;/&lt;em&gt; to **bold** and _italic_', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            
+            <!-- Custom Allowed Tags -->
+            <tr class="custom-tags-option">
+                <th scope="row"><?php esc_html_e('Custom Allowed Tags', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <textarea name="<?php echo esc_attr($get_input_name('custom_allowed_tags')); ?>" rows="3" cols="50" class="large-text"><?php echo esc_textarea($options['custom_allowed_tags'] ?? ''); ?></textarea>
+                    <p class="description"><?php esc_html_e('Comma-separated list of allowed HTML tags (e.g., p,strong,em,a)', 'wpgraphql-content-filter'); ?></p>
+                </td>
+            </tr>
+            
+            <?php if ($context !== 'network'): // Only show on site-level settings ?>
+            <!-- Remove Plugin Data on Uninstall -->
+            <tr>
+                <th scope="row"><?php esc_html_e('Remove Plugin Data on Uninstall', 'wpgraphql-content-filter'); ?></th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="<?php echo esc_attr($get_input_name('remove_plugin_data_on_uninstall')); ?>" value="1" <?php checked(!empty($options['remove_plugin_data_on_uninstall'])); ?> />
+                        <?php esc_html_e('When enabled, all plugin settings and cached data will be permanently deleted when the plugin is uninstalled.', 'wpgraphql-content-filter'); ?>
+                        <strong><?php esc_html_e('Warning:', 'wpgraphql-content-filter'); ?></strong> <?php esc_html_e('This action cannot be undone.', 'wpgraphql-content-filter'); ?>
+                    </label>
+                </td>
+            </tr>
+            <?php endif; ?>
         </table>
+        
+        <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            const filterModeSelect = document.getElementById('filter_mode');
+            const markdownOptions = document.querySelectorAll('.markdown-option');
+            const customTagsOption = document.querySelector('.custom-tags-option');
+            
+            function toggleOptions() {
+                const selectedMode = filterModeSelect.value;
+                
+                // Show/hide markdown options
+                markdownOptions.forEach(function(option) {
+                    option.style.display = selectedMode === 'markdown' ? '' : 'none';
+                });
+                
+                // Show/hide custom tags option
+                if (customTagsOption) {
+                    customTagsOption.style.display = selectedMode === 'custom' ? '' : 'none';
+                }
+            }
+            
+            // Initial state
+            toggleOptions();
+            
+            // Listen for changes
+            filterModeSelect.addEventListener('change', toggleOptions);
+        });
+        </script>
         <?php
     }
     
