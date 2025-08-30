@@ -368,8 +368,17 @@ class WPGraphQL_Content_Filter {
         $post_types = $this->get_graphql_post_types();
         
         foreach ($post_types as $post_type) {
-            $this->add_graphql_field_filters($post_type);
+            // Use WPGraphQL's object field filters for each post type
+            add_filter("graphql_resolve_field_value_{$post_type}_content", [$this, 'filter_graphql_content_field'], 10, 4);
+            add_filter("graphql_resolve_field_value_{$post_type}_excerpt", [$this, 'filter_graphql_excerpt_field'], 10, 4);
+            
+            // Also try the post object field filters as fallback
+            add_filter("graphql_{$post_type}_object_content", [$this, 'filter_content'], 10, 3);
+            add_filter("graphql_{$post_type}_object_excerpt", [$this, 'filter_excerpt'], 10, 3);
         }
+        
+        // Also add a general field resolver filter as backup
+        add_filter('graphql_resolve_field', [$this, 'filter_graphql_field'], 10, 9);
     }
     
     /**
@@ -403,26 +412,11 @@ class WPGraphQL_Content_Filter {
     }
     
     /**
-     * Add GraphQL field filters for a specific post type
-     */
-    private function add_graphql_field_filters($post_type) {
-        $post_type_object = get_post_type_object($post_type);
-        if (!$post_type_object) {
-            return;
-        }
-        
-        add_filter("graphql_{$post_type}_object_content", [$this, 'filter_content'], 10, 3);
-        add_filter("graphql_{$post_type}_object_excerpt", [$this, 'filter_excerpt'], 10, 3);
-    }
-    
-    /**
      * Add REST API response filter for a specific post type
      */
     private function add_rest_response_filter($post_type) {
         add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 10, 3);
-    }
-    
-    public function init() {
+    }    public function init() {
         load_plugin_textdomain('wpgraphql-content-filter', false, dirname(plugin_basename(__FILE__)) . '/languages');
         
         // Check for plugin upgrades
@@ -1536,7 +1530,57 @@ class WPGraphQL_Content_Filter {
     }
     
     /**
-     * GraphQL content field filter
+     * Filter GraphQL content field using specific field value filter
+     */
+    public function filter_graphql_content_field($value, $source, $args, $context) {
+        if (is_string($value)) {
+            return $this->filter_field_content($value, 'content');
+        }
+        return $value;
+    }
+    
+    /**
+     * Filter GraphQL excerpt field using specific field value filter
+     */
+    public function filter_graphql_excerpt_field($value, $source, $args, $context) {
+        if (is_string($value)) {
+            return $this->filter_field_content($value, 'excerpt');
+        }
+        return $value;
+    }
+    
+    /**
+     * Filter GraphQL fields using the modern graphql_resolve_field filter
+     */
+    public function filter_graphql_field($result, $source, $args, $context, $info, $type_name, $field_key, $field, $field_resolver) {
+        // Only filter post-type fields for content and excerpt
+        if (!in_array($field_key, ['content', 'excerpt'])) {
+            return $result;
+        }
+        
+        // Check if this is a post object
+        if (!isset($source->post_type) || !is_object($source)) {
+            return $result;
+        }
+        
+        // Get post type and check if it's in our allowed types
+        $post_type = $source->post_type;
+        $allowed_post_types = $this->get_graphql_post_types();
+        
+        if (!in_array($post_type, $allowed_post_types)) {
+            return $result;
+        }
+        
+        // Apply filtering to the field content
+        if (is_string($result)) {
+            return $this->filter_field_content($result, $field_key);
+        }
+        
+        return $result;
+    }
+    
+    /**
+     * GraphQL content field filter (legacy support)
      */
     public function filter_content($content, $post, $context) {
         return $this->filter_field_content($content, 'content');
