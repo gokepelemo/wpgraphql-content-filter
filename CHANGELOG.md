@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.5] - 2025-08-30
+
+### Added
+
+- **Plugin Action Links**: Added "Settings" links to the Installed Plugins page for easier access to plugin settings
+- **REST API Control**: Added option to enable/disable content filtering for WordPress REST API
+- **Enhanced UI**: Plugin settings are now directly accessible from both regular and network admin plugin pages
+
+### Changed
+
+- REST API filtering is now optional and can be controlled via plugin settings
+- Plugin action links provide direct access to settings from the Plugins page
+
+### Optimized
+
+- **Code Constants**: Added constants for option names to reduce repetition and improve maintainability
+- **Helper Methods**: Created `get_site_data()` helper method to reduce duplicate database calls
+- **Version Consistency**: Fixed version number consistency between plugin header and internal constants
+- **Performance**: Optimized option retrieval patterns throughout the codebase
+
+## [1.0.4] - 2025-08-30
+
+### Fixed
+
+- **Admin Menu Visibility**: Fixed issue where admin menus weren't showing properly in multisite environments
+- **Settings Registration**: Simplified logic for when site-level settings should be available
+- **Network Settings Access**: Ensured network admin settings are always accessible when appropriate
+- **Site Override Logic**: Fixed overly restrictive conditions that prevented site menus from appearing
+
+### Changed
+
+- Simplified admin menu and settings registration logic to be more permissive by default
+- Site-level settings now show unless network settings are explicitly enforced
+- Removed complex logic that was preventing proper menu display
+
 ## [1.0.3] - 2025-08-30
 
 ### Added

@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists.
- * Version: 1.0.3
+ * Version: 1.0.5
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -11,7 +11,6 @@
  * Requires at least: 5.0
  * Tested up to: 6.6
  * Requires PHP: 7.4
- * Network: true
  * Text Domain: wpgraphql-content-filter
  * Domain Path: /languages
  *
@@ -33,7 +32,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.1.0');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '1.0.5');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -43,6 +42,17 @@ if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')) {
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_URL')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_URL', plugin_dir_url(__FILE__));
+}
+
+// Define option names
+if (!defined('WPGRAPHQL_CONTENT_FILTER_OPTIONS')) {
+    define('WPGRAPHQL_CONTENT_FILTER_OPTIONS', 'wpgraphql_content_filter_options');
+}
+if (!defined('WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS')) {
+    define('WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS', 'wpgraphql_content_filter_network_options');
+}
+if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION')) {
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION', 'wpgraphql_content_filter_version');
 }
 
 /**
@@ -80,6 +90,12 @@ class WPGraphQL_Content_Filter {
         }
         
         add_action('admin_init', [$this, 'admin_init']);
+        
+        // Add plugin action links
+        add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_plugin_action_links']);
+        if (is_multisite()) {
+            add_filter('network_admin_plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_network_plugin_action_links']);
+        }
         
         // Add multisite new site hook
         if (is_multisite()) {
@@ -139,7 +155,7 @@ class WPGraphQL_Content_Filter {
                 switch_to_blog($site_id);
                 
                 // Only initialize if options don't exist
-                if (!get_option('wpgraphql_content_filter_options', false)) {
+                if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
                     // Initialize with synced network settings
                     $instance->sync_network_settings_to_current_site($network_defaults);
                 }
@@ -148,14 +164,14 @@ class WPGraphQL_Content_Filter {
             }
         } else {
             // Single site activation or individual site in multisite
-            if (!get_option('wpgraphql_content_filter_options', false)) {
+            if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
                 if (is_multisite()) {
                     // For individual site in multisite, sync with network settings
                     $instance = self::getInstance();
                     $instance->sync_network_settings_to_current_site();
                 } else {
                     // Single site installation
-                    add_option('wpgraphql_content_filter_options', $default_options);
+                    add_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $default_options);
                 }
             }
         }
@@ -196,7 +212,7 @@ class WPGraphQL_Content_Filter {
         switch_to_blog($site->blog_id);
         
         // Only add default options if they don't exist
-        if (!get_option('wpgraphql_content_filter_options', false)) {
+        if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
             // Initialize with network settings synced
             $this->sync_network_settings_to_current_site();
         }
@@ -271,10 +287,15 @@ class WPGraphQL_Content_Filter {
      * Register REST API response hooks for all public post types
      */
     public function register_rest_hooks() {
-        $post_types = $this->get_rest_post_types();
+        $options = $this->get_options();
         
-        foreach ($post_types as $post_type) {
-            $this->add_rest_response_filter($post_type);
+        // Only register REST API hooks if the setting is enabled
+        if (!empty($options['apply_to_rest_api'])) {
+            $post_types = $this->get_rest_post_types();
+            
+            foreach ($post_types as $post_type) {
+                $this->add_rest_response_filter($post_type);
+            }
         }
     }
     
@@ -323,11 +344,11 @@ class WPGraphQL_Content_Filter {
      * Check for plugin upgrades and handle version changes
      */
     private function check_plugin_upgrade() {
-        $current_version = get_option('wpgraphql_content_filter_version', '0.0.0');
+        $current_version = get_option(WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION, '0.0.0');
         
         if (version_compare($current_version, WPGRAPHQL_CONTENT_FILTER_VERSION, '<')) {
             $this->handle_plugin_upgrade($current_version);
-            update_option('wpgraphql_content_filter_version', WPGRAPHQL_CONTENT_FILTER_VERSION);
+            update_option(WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION, WPGRAPHQL_CONTENT_FILTER_VERSION);
         }
     }
     
@@ -339,8 +360,8 @@ class WPGraphQL_Content_Filter {
         $this->clear_options_cache();
         
         // Version-specific upgrade tasks can be added here
-        if (version_compare($old_version, '1.1.0', '<')) {
-            // Tasks for upgrading to 1.1.0
+        if (version_compare($old_version, '1.0.5', '<')) {
+            // Tasks for upgrading to 1.0.5
             if (function_exists('wp_cache_flush')) {
                 wp_cache_flush();
             }
@@ -361,6 +382,7 @@ class WPGraphQL_Content_Filter {
             'custom_allowed_tags' => '',
             'apply_to_excerpt' => true,
             'apply_to_content' => true,
+            'apply_to_rest_api' => true,
             'remove_plugin_data_on_uninstall' => false,
         ];
     }
@@ -391,7 +413,7 @@ class WPGraphQL_Content_Filter {
         $defaults = $this->get_default_options();
         
         if (!is_multisite()) {
-            return get_option('wpgraphql_content_filter_options', $defaults);
+            return get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $defaults);
         }
         
         $network_options = $this->get_network_options();
@@ -407,7 +429,7 @@ class WPGraphQL_Content_Filter {
         }
         
         // Get site options with override tracking
-        $site_data = get_option('wpgraphql_content_filter_options', []);
+        $site_data = $this->get_site_data();
         $site_options = $site_data['options'] ?? [];
         $site_overrides = $site_data['overrides'] ?? [];
         
@@ -438,7 +460,7 @@ class WPGraphQL_Content_Filter {
             'enforce_network_settings' => false
         ]);
         
-        $this->network_options_cache = get_site_option('wpgraphql_content_filter_network_options', $defaults);
+        $this->network_options_cache = get_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $defaults);
         
         return $this->network_options_cache;
     }
@@ -447,7 +469,7 @@ class WPGraphQL_Content_Filter {
      * Get site-specific options for multisite
      */
     public function get_site_options() {
-        $site_data = get_option('wpgraphql_content_filter_options', []);
+        $site_data = $this->get_site_data();
         
         // Handle legacy format (direct options array)
         if (!isset($site_data['options']) && !isset($site_data['overrides'])) {
@@ -461,8 +483,15 @@ class WPGraphQL_Content_Filter {
      * Get site override settings
      */
     public function get_site_overrides() {
-        $site_data = get_option('wpgraphql_content_filter_options', []);
+        $site_data = $this->get_site_data();
         return $site_data['overrides'] ?? [];
+    }
+    
+    /**
+     * Helper method to get raw site data
+     */
+    private function get_site_data() {
+        return get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, []);
     }
     
     /**
@@ -470,7 +499,7 @@ class WPGraphQL_Content_Filter {
      */
     public function update_site_options($options, $overrides = []) {
         if (!is_multisite()) {
-            return update_option('wpgraphql_content_filter_options', $options);
+            return update_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $options);
         }
         
         $site_data = [
@@ -479,7 +508,7 @@ class WPGraphQL_Content_Filter {
             'last_sync' => current_time('timestamp')
         ];
         
-        return update_option('wpgraphql_content_filter_options', $site_data);
+        return update_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $site_data);
     }
     
     /**
@@ -515,7 +544,7 @@ class WPGraphQL_Content_Filter {
             $network_options = $this->get_network_options();
         }
         
-        $site_data = get_option('wpgraphql_content_filter_options', []);
+        $site_data = $this->get_site_data();
         
         // Handle legacy format conversion
         if (!isset($site_data['options']) && !isset($site_data['overrides'])) {
@@ -638,7 +667,7 @@ class WPGraphQL_Content_Filter {
             : $defaults['filter_mode'];
         
         // Sanitize boolean options
-        $boolean_fields = ['preserve_line_breaks', 'convert_headings', 'convert_links', 'convert_lists', 'convert_emphasis', 'apply_to_excerpt', 'apply_to_content', 'remove_plugin_data_on_uninstall'];
+        $boolean_fields = ['preserve_line_breaks', 'convert_headings', 'convert_links', 'convert_lists', 'convert_emphasis', 'apply_to_excerpt', 'apply_to_content', 'apply_to_rest_api', 'remove_plugin_data_on_uninstall'];
         foreach ($boolean_fields as $field) {
             $sanitized[$field] = !empty($input[$field]);
         }
@@ -724,8 +753,8 @@ class WPGraphQL_Content_Filter {
     public function add_site_admin_menu() {
         $network_options = $this->get_network_options();
         
-        // Only add site menu if overrides are allowed and settings aren't enforced
-        if (!empty($network_options['allow_site_overrides']) && empty($network_options['enforce_network_settings'])) {
+        // Only hide site menu if network settings are explicitly enforced
+        if (empty($network_options['enforce_network_settings'])) {
             add_options_page(
                 __('WPGraphQL Content Filter', 'wpgraphql-content-filter'),
                 __('GraphQL Content Filter', 'wpgraphql-content-filter'),
@@ -745,22 +774,17 @@ class WPGraphQL_Content_Filter {
             return;
         }
         
-        // Don't register site settings if network settings are enforced
+        // Don't register site settings if network settings are explicitly enforced
         if (is_multisite()) {
             $network_options = $this->get_network_options();
             if (!empty($network_options['enforce_network_settings'])) {
-                return;
-            }
-            
-            // Don't register if site overrides aren't allowed
-            if (empty($network_options['allow_site_overrides'])) {
                 return;
             }
         }
         
         register_setting(
             'wpgraphql_content_filter_group', 
-            'wpgraphql_content_filter_options',
+            WPGRAPHQL_CONTENT_FILTER_OPTIONS,
             [
                 'sanitize_callback' => [$this, 'sanitize_options'],
                 'default' => $this->get_default_options()
@@ -801,6 +825,16 @@ class WPGraphQL_Content_Filter {
             'wpgraphql-content-filter',
             'wpgraphql_content_filter_section',
             ['field' => 'apply_to_excerpt', 'description' => 'Filter the excerpt field']
+        );
+        
+        // Apply to REST API
+        add_settings_field(
+            'apply_to_rest_api',
+            __('Apply to REST API', 'wpgraphql-content-filter'),
+            [$this, 'checkbox_callback'],
+            'wpgraphql-content-filter',
+            'wpgraphql_content_filter_section',
+            ['field' => 'apply_to_rest_api', 'description' => 'Enable content filtering for WordPress REST API responses']
         );
         
         // Preserve Line Breaks
@@ -1070,11 +1104,11 @@ class WPGraphQL_Content_Filter {
      */
     private function get_effective_options() {
         if (!is_multisite()) {
-            return get_option('wpgraphql_content_filter_options', $this->get_default_options());
+            return get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $this->get_default_options());
         }
         
         $network_options = $this->get_network_options();
-        $site_options = get_option('wpgraphql_content_filter_options', []);
+        $site_options = $this->get_site_data();
         
         // If network settings are enforced, use network options
         if (!empty($network_options['enforce_network_settings'])) {
@@ -1281,7 +1315,7 @@ class WPGraphQL_Content_Filter {
         }
         
         $network_options = $this->sanitize_network_options($_POST);
-        $updated = update_site_option('wpgraphql_content_filter_network_options', $network_options);
+        $updated = update_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_options);
         
         if ($updated) {
             // Clear all option caches since network settings affect all sites
@@ -1558,6 +1592,34 @@ class WPGraphQL_Content_Filter {
         $allowed = '<' . implode('><', $tags) . '>';
         
         return strip_tags($content, $allowed);
+    }
+    
+    /**
+     * Add plugin action links for single site
+     */
+    public function add_plugin_action_links($links) {
+        $settings_link = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url(admin_url('admin.php?page=wpgraphql-content-filter')),
+            __('Settings', 'wpgraphql-content-filter')
+        );
+        
+        array_unshift($links, $settings_link);
+        return $links;
+    }
+    
+    /**
+     * Add plugin action links for network admin
+     */
+    public function add_network_plugin_action_links($links) {
+        $settings_link = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url(network_admin_url('admin.php?page=wpgraphql-content-filter')),
+            __('Settings', 'wpgraphql-content-filter')
+        );
+        
+        array_unshift($links, $settings_link);
+        return $links;
     }
 }
 
