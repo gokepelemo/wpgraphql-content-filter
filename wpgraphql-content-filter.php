@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 2.0.3
+ * Version: 2.0.4
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -33,7 +33,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.0.3');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.0.4');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -148,6 +148,12 @@ function wpgraphql_content_filter_memory_monitor() {
  * Initialize the plugin.
  */
 function wpgraphql_content_filter_init() {
+    // EMERGENCY DISABLE - temporary for debugging memory issues
+    if (defined('WPGRAPHQL_CONTENT_FILTER_DISABLE') && WPGRAPHQL_CONTENT_FILTER_DISABLE) {
+        error_log('WPGraphQL Content Filter: Plugin disabled via WPGRAPHQL_CONTENT_FILTER_DISABLE constant');
+        return;
+    }
+
     // Emergency memory protection - disable plugin if memory is critically low
     $memory_limit = ini_get('memory_limit');
     $memory_bytes = wpgraphql_content_filter_convert_memory_to_bytes($memory_limit);

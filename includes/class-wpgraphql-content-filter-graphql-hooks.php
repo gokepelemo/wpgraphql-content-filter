@@ -426,31 +426,37 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      * @return string Filtered content.
      */
     private function resolve_filtered_content($post, $field, $args, $context, $info) {
+        // Early exit to prevent memory issues
+        static $processing_count = 0;
+        $processing_count++;
+        
+        if ($processing_count > 50) { // Much lower limit
+            error_log('WPGraphQL Content Filter: Too many resolve calls (' . $processing_count . '), potential infinite loop');
+            return $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
+        }
+        
         $options = WPGraphQL_Content_Filter_Options::get_effective_options();
         $content = $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
 
         if (empty($content)) {
+            $processing_count--;
             return '';
         }
 
-        // Generate cache key
-        $content_hash = md5($content);
-        $options_hash = md5(serialize($options));
-
-        // Try to get from cache first
-        $cached_content = $this->cache_manager->get_filtered_content(
-            $content_hash,
-            $options_hash,
-            function() use ($content, $options) {
-                return $this->content_processor->process_content(
-                    $content,
-                    $options['filter_mode'] ?? 'strip_html',
-                    $options
-                );
-            }
-        );
-
-        return $cached_content ?: '';
+        // Skip cache for now to prevent potential recursive issues
+        try {
+            $result = $this->content_processor->process_content(
+                $content,
+                $options['filter_mode'] ?? 'strip_html',
+                $options
+            );
+            $processing_count--;
+            return $result ?: '';
+        } catch (Exception $e) {
+            error_log('WPGraphQL Content Filter resolve error: ' . $e->getMessage());
+            $processing_count--;
+            return $content; // Return original content on error
+        }
     }
 
     /**
@@ -464,10 +470,20 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      * @return string Filtered content.
      */
     private function resolve_filtered_content_with_options($post, $field, $args, $context, $info) {
+        // Early exit to prevent memory issues
+        static $processing_count = 0;
+        $processing_count++;
+        
+        if ($processing_count > 50) {
+            error_log('WPGraphQL Content Filter: Too many resolve_with_options calls (' . $processing_count . '), potential infinite loop');
+            return $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
+        }
+        
         $default_options = WPGraphQL_Content_Filter_Options::get_effective_options();
         $content = $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
 
         if (empty($content)) {
+            $processing_count--;
             return '';
         }
 
@@ -481,24 +497,20 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             'strip_shortcodes' => $args['stripShortcodes'] ?? true,
         ]);
 
-        // Generate cache key
-        $content_hash = md5($content);
-        $options_hash = md5(serialize($custom_options));
-
-        // Try to get from cache first
-        $cached_content = $this->cache_manager->get_filtered_content(
-            $content_hash,
-            $options_hash,
-            function() use ($content, $custom_options) {
-                return $this->content_processor->process_content(
-                    $content,
-                    $custom_options['filter_mode'],
-                    $custom_options
-                );
-            }
-        );
-
-        return $cached_content ?: '';
+        // Process directly without cache to prevent recursion
+        try {
+            $result = $this->content_processor->process_content(
+                $content,
+                $custom_options['filter_mode'] ?? 'strip_html',
+                $custom_options
+            );
+            $processing_count--;
+            return $result ?: '';
+        } catch (Exception $e) {
+            error_log('WPGraphQL Content Filter resolve_with_options error: ' . $e->getMessage());
+            $processing_count--;
+            return $content;
+        }
     }
 
     /**
