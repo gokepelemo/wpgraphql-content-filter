@@ -22,19 +22,68 @@ if (!defined('ABSPATH')) {
  * @since 1.0.0
  */
 class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter_Hook_Manager_Interface {
+
+    /**
+     * Cache for GraphQL post types.
+     *
+     * @var array|null
+     */
+    private $post_types_cache = null;
+
+    /**
+     * Get cached GraphQL post types with enhanced safety limits.
+     *
+     * @return array Array of post type names.
+     */
+    private function get_graphql_post_types_cached() {
+        if ($this->post_types_cache === null) {
+            if (!class_exists('WPGraphQL')) {
+                $this->post_types_cache = [];
+                return $this->post_types_cache;
+            }
+            
+            // Enhanced safety check for memory usage
+            $memory_before = memory_get_usage(true);
+            $memory_limit = wp_convert_hr_to_bytes(ini_get('memory_limit'));
+            
+            if ($memory_before > ($memory_limit * 0.6)) {
+                error_log("WPGraphQL Content Filter: Skipping post type enumeration - memory usage too high");
+                $this->post_types_cache = [];
+                return $this->post_types_cache;
+            }
+            
+            try {
+                $post_types = \WPGraphQL::get_allowed_post_types();
+                
+                // More aggressive safety limit
+                if (is_array($post_types) && count($post_types) > 15) {
+                    error_log("WPGraphQL Content Filter: WARNING - Too many post types (" . count($post_types) . "), limiting to first 15");
+                    $post_types = array_slice($post_types, 0, 15);
+                }
+                
+                $this->post_types_cache = is_array($post_types) ? $post_types : [];
+                
+            } catch (Exception $e) {
+                error_log("WPGraphQL Content Filter: Error getting post types - " . $e->getMessage());
+                $this->post_types_cache = [];
+            }
+            
+            $memory_after = memory_get_usage(true);
+            $memory_used = $memory_after - $memory_before;
+            
+            if ($memory_used > 524288) { // 512KB
+                error_log("WPGraphQL Content Filter: WARNING - get_allowed_post_types() used " . number_format($memory_used / 1048576, 2) . "MB of memory");
+            }
+        }
+        return $this->post_types_cache;
+    }
+
     /**
      * Flag to track if hooks are registered.
      *
      * @var bool
      */
     private $hooks_registered = false;
-
-    /**
-     * Cached GraphQL post types.
-     *
-     * @var array|null
-     */
-    private $post_types_cache = null;
 
     /**
      * Content processor instance.
@@ -72,7 +121,7 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      */
     public function __construct($content_processor = null, $cache_manager = null) {
         $this->content_processor = $content_processor ?: new WPGraphQL_Content_Filter_Content_Processor();
-        $this->cache_manager = $cache_manager ?: new WPGraphQL_Content_Filter_Cache();
+        $this->cache_manager = $cache_manager; // Accept null if no cache is available
     }
 
     /**
@@ -83,6 +132,15 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
     public function register_hooks() {
         if ($this->hooks_registered) {
             error_log('WPGraphQL Content Filter: Attempted to register hooks when already registered, preventing duplicate registration');
+            return;
+        }
+
+        // Emergency memory protection
+        $memory_limit = wp_convert_hr_to_bytes(ini_get('memory_limit'));
+        $current_memory = memory_get_usage(true);
+        
+        if ($current_memory > ($memory_limit * 0.7)) {
+            error_log("WPGraphQL Content Filter: Skipping hook registration - memory usage too high: " . number_format($current_memory / 1048576, 2) . "MB of " . number_format($memory_limit / 1048576, 2) . "MB limit");
             return;
         }
 
@@ -97,7 +155,21 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             return;
         }
 
-        $this->register_graphql_field_filters();
+        $memory_before = memory_get_usage(true);
+        
+        try {
+            $this->register_graphql_field_filters();
+        } catch (Exception $e) {
+            error_log("WPGraphQL Content Filter: Error during hook registration - " . $e->getMessage());
+            return;
+        }
+        
+        $memory_after = memory_get_usage(true);
+        $memory_used = $memory_after - $memory_before;
+        
+        if ($memory_used > 10485760) { // 10MB
+            error_log("WPGraphQL Content Filter: WARNING - Hook registration used " . number_format($memory_used / 1048576, 2) . "MB of memory");
+        }
         $this->register_graphql_mutations();
         $this->register_graphql_queries();
         
@@ -188,10 +260,32 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      * @return void
      */
     private function register_graphql_field_filters() {
+        // Emergency memory protection - check current usage
+        $current_memory = memory_get_usage(true);
+        $memory_limit = wp_convert_hr_to_bytes(ini_get('memory_limit'));
+        
+        if ($current_memory > ($memory_limit * 0.8)) {
+            error_log("WPGraphQL Content Filter: Skipping GraphQL registration - memory usage too high: " . number_format($current_memory / 1048576, 2) . "MB");
+            return;
+        }
+
         $post_types = $this->get_graphql_post_types_cached();
+        
+        // Additional safety - limit to max 10 post types to prevent memory exhaustion
+        if (count($post_types) > 10) {
+            error_log("WPGraphQL Content Filter: Limiting post types from " . count($post_types) . " to 10 for memory safety");
+            $post_types = array_slice($post_types, 0, 10);
+        }
+        
         $options = WPGraphQL_Content_Filter_Options::get_effective_options();
 
         foreach ($post_types as $post_type) {
+            // Memory check per iteration
+            if (memory_get_usage(true) > ($memory_limit * 0.9)) {
+                error_log("WPGraphQL Content Filter: Stopping registration - memory limit approaching");
+                break;
+            }
+            
             $graphql_single_name = $this->get_graphql_single_name($post_type);
             
             if (empty($graphql_single_name)) {
@@ -531,6 +625,13 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
         }
 
         try {
+            if (!$this->cache_manager) {
+                return [
+                    'success' => false,
+                    'message' => __('Cache manager not available', 'wpgraphql-content-filter'),
+                ];
+            }
+
             if (!empty($input['clearAll'])) {
                 $this->cache_manager->flush();
                 $message = __('All cache cleared successfully', 'wpgraphql-content-filter');
@@ -571,6 +672,18 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             return null;
         }
 
+        // If cache manager is not available, return basic stats
+        if (!$this->cache_manager) {
+            $processor_stats = $this->content_processor->get_stats();
+            return [
+                'cacheHits' => 0,
+                'cacheMisses' => 0,
+                'hitRatio' => 0,
+                'processingStats' => json_encode($processor_stats),
+                'memoryUsage' => memory_get_usage(true),
+            ];
+        }
+
         $cache_stats = $this->cache_manager->get_stats();
         $processor_stats = $this->content_processor->get_stats();
 
@@ -581,19 +694,6 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             'processingStats' => json_encode($processor_stats),
             'memoryUsage' => memory_get_usage(true),
         ];
-    }
-
-    /**
-     * Get cached GraphQL post types.
-     *
-     * @return array Array of post types enabled for GraphQL.
-     */
-    private function get_graphql_post_types_cached() {
-        if ($this->post_types_cache === null) {
-            $this->post_types_cache = class_exists('WPGraphQL') ? 
-                \WPGraphQL::get_allowed_post_types() : [];
-        }
-        return $this->post_types_cache;
     }
 
     /**
@@ -636,8 +736,19 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      * @return void
      */
     private function register_field_filter($hook, $callback, $priority = 10, $args = 1) {
-        // Check if this exact hook/callback combination is already registered
-        $filter_signature = $hook . '::' . serialize($callback) . '::' . $priority;
+        // Create a lightweight signature without serializing the callback
+        $callback_signature = '';
+        if (is_array($callback)) {
+            $callback_signature = is_object($callback[0]) ? get_class($callback[0]) : $callback[0];
+            $callback_signature .= '::' . $callback[1];
+        } elseif (is_string($callback)) {
+            $callback_signature = $callback;
+        } else {
+            // For closures, use a simple hash of the hook + priority
+            $callback_signature = 'closure_' . md5($hook . $priority);
+        }
+        
+        $filter_signature = $hook . '::' . $callback_signature . '::' . $priority;
         
         if (in_array($filter_signature, $this->registered_filters)) {
             return; // Already registered, skip
@@ -645,7 +756,7 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
         
         add_filter($hook, $callback, $priority, $args);
         
-        // Store the signature instead of full data to save memory
+        // Store the lightweight signature
         $this->registered_filters[] = $filter_signature;
     }
 

@@ -67,6 +67,33 @@ Navigate to **Settings > GraphQL Content Filter** in your WordPress admin to con
 3. **Markdown Options**: Configure Markdown conversion (when applicable)
 4. **Custom Tags**: Define allowed HTML tags (for custom mode)
 
+### Performance Settings
+
+The plugin includes several performance optimization features:
+
+#### Cache Settings
+
+- **Enable Cache**: Enables content filtering cache for improved performance by storing processed results
+- **Cache TTL (seconds)**: Controls how long cached results are kept (default: 3600 seconds / 1 hour)
+
+#### Batch Processing
+
+- **Batch Processing Size**: Controls how many items are processed together in bulk operations
+  - **Default**: 100 items per batch
+  - **Range**: 10-1000 items per batch
+  - **Purpose**: Prevents memory exhaustion and timeouts during large-scale operations
+  - **Tuning**:
+    - Lower values (10-50): Better for shared hosting or limited resources
+    - Higher values (200-500): Suitable for dedicated servers with more processing power
+    - Default (100): Good balance for most WordPress installations
+
+This setting is particularly important for:
+
+- Bulk content filtering operations
+- Cache warming processes
+- Mass content updates that trigger the content filter
+- Any operation processing multiple posts/pages at once
+
 ### API Queries
 
 The plugin filters content in place, so your existing queries work without changes. It works with both GraphQL and REST API:

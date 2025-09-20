@@ -118,64 +118,128 @@ class WPGraphQL_Content_Filter_Core {
     }
 
     /**
-     * Initialize the plugin.
+     * Initialize the plugin with memory protection.
      *
      * @return void
      */
     public function init() {
-        if ($this->initialized) {
-            return;
+        try {
+            // Load plugin dependencies with memory protection
+            $this->load_dependencies();
+            
+            // Initialize core components with full functionality
+            $this->initialize_hooks_safely();
+            
+        } catch (Exception $e) {
+            error_log("WPGraphQL Content Filter: Error during initialization - " . $e->getMessage());
         }
-
-        // Load required files
-        $this->load_dependencies();
-
-        // Initialize core modules
-        $this->init_modules();
-
-        // Register hooks
-        $this->register_hooks();
-
-        // Set up lazy loading for context-specific hooks
-        $this->setup_lazy_loading();
-
-        $this->initialized = true;
-
-        // Calculate initialization performance
-        $this->performance_data['init_time'] = microtime(true) - $this->performance_data['init_time'];
-        $this->performance_data['memory_usage'] = memory_get_usage(true) - $this->performance_data['memory_usage'];
-    }
-
-    /**
-     * Load plugin dependencies.
+    }    /**
+     * Load plugin dependencies with memory protection.
      *
      * @return void
      */
     private function load_dependencies() {
         $includes_path = plugin_dir_path(__FILE__);
 
-        // Load only essential interfaces first
+        error_log("WPGraphQL Content Filter: Starting selective dependency loading");
+
+        // Load only the most essential classes
         require_once $includes_path . 'interfaces/interface-content-filter.php';
+        error_log("WPGraphQL Content Filter: Loaded content filter interface");
         
-        // Load core modules only as needed
         require_once $includes_path . 'class-wpgraphql-content-filter-options.php';
-        require_once $includes_path . 'class-wpgraphql-content-filter-content-processor.php';
+        error_log("WPGraphQL Content Filter: Loaded options class");
         
-        // Load GraphQL hooks only if WPGraphQL is active
+        require_once $includes_path . 'class-wpgraphql-content-filter-content-processor.php';
+        error_log("WPGraphQL Content Filter: Loaded content processor class");
+        
+        // Load ALL classes including cache
+        if ($this->is_object_cache_available()) {
+            require_once $includes_path . 'interfaces/interface-cache-provider.php';
+            require_once $includes_path . 'class-wpgraphql-content-filter-cache.php';
+            error_log("WPGraphQL Content Filter: Cache classes loaded");
+        }
+        
+        // Test loading BOTH GraphQL and REST hooks classes together
         if (class_exists('WPGraphQL')) {
+            error_log("WPGraphQL Content Filter: Loading GraphQL hooks with interface...");
             require_once $includes_path . 'interfaces/interface-hook-manager.php';
             require_once $includes_path . 'class-wpgraphql-content-filter-graphql-hooks.php';
+            error_log("WPGraphQL Content Filter: GraphQL hooks class loaded");
         }
         
         // Load REST hooks only if REST API filtering is enabled
         $options = get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, []);
         if (!empty($options['apply_to_rest_api'])) {
+            error_log("WPGraphQL Content Filter: Loading REST hooks class...");
             require_once $includes_path . 'class-wpgraphql-content-filter-rest-hooks.php';
+            error_log("WPGraphQL Content Filter: REST hooks class loaded");
+        } else {
+            error_log("WPGraphQL Content Filter: REST API filtering disabled, skipping REST hooks");
         }
+        
+        // Always load admin interface (it will self-check admin context)
+        require_once $includes_path . 'class-wpgraphql-content-filter-admin.php';
+        error_log("WPGraphQL Content Filter: Admin class loaded");
+        
+        error_log("WPGraphQL Content Filter: Selective dependency loading complete");
+    }
+    
+    /**
+     * Safely initialize hooks with full functionality.
+     */
+    private function initialize_hooks_safely() {
+        error_log("WPGraphQL Content Filter: Starting full hooks initialization...");
+        
+        try {
+            // Initialize content processor (required)
+            $this->content_processor = new WPGraphQL_Content_Filter_Content_Processor();
+            error_log("WPGraphQL Content Filter: Content processor initialized");
 
-        // Load admin interface only if in admin context
-        if (is_admin()) {
-            require_once $includes_path . 'class-wpgraphql-content-filter-admin.php';
+            // Initialize cache manager if available
+            $cache_manager = null;
+            if (class_exists('WPGraphQL_Content_Filter_Cache')) {
+                $cache_manager = new WPGraphQL_Content_Filter_Cache();
+                $this->cache_manager = $cache_manager;
+                error_log("WPGraphQL Content Filter: Cache manager initialized");
+            }
+
+            // Initialize GraphQL hooks if available
+            if (class_exists('WPGraphQL') && class_exists('WPGraphQL_Content_Filter_GraphQL_Hooks')) {
+                error_log("WPGraphQL Content Filter: Initializing GraphQL hooks with cache...");
+                $this->graphql_hooks = new WPGraphQL_Content_Filter_GraphQL_Hooks(
+                    $this->content_processor,
+                    $cache_manager
+                );
+                error_log("WPGraphQL Content Filter: GraphQL hooks initialized successfully");
+            }
+
+            // Initialize REST hooks if available and enabled
+            $options = get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, []);
+            if (!empty($options['apply_to_rest_api']) && class_exists('WPGraphQL_Content_Filter_REST_Hooks')) {
+                error_log("WPGraphQL Content Filter: Initializing REST hooks with cache...");
+                $this->rest_hooks = new WPGraphQL_Content_Filter_REST_Hooks(
+                    $this->content_processor,
+                    $cache_manager
+                );
+                error_log("WPGraphQL Content Filter: REST hooks initialized successfully");
+            }
+
+            // Initialize full admin interface (matches original screenshot)
+            if (class_exists('WPGraphQL_Content_Filter_Admin')) {
+                error_log("WPGraphQL Content Filter: Initializing full admin interface...");
+                $this->admin = new WPGraphQL_Content_Filter_Admin(
+                    $cache_manager,
+                    $this->content_processor
+                );
+                // Initialize admin hooks and menu
+                $this->admin->init();
+                error_log("WPGraphQL Content Filter: Full admin interface initialized");
+            }
+            
+            error_log("WPGraphQL Content Filter: All components initialized successfully");
+        } catch (Exception $e) {
+            error_log("WPGraphQL Content Filter: Error in full initialization - " . $e->getMessage());
         }
     }
 
@@ -189,11 +253,18 @@ class WPGraphQL_Content_Filter_Core {
         $this->content_processor = new WPGraphQL_Content_Filter_Content_Processor();
         $this->performance_data['modules_loaded']++;
 
+        // Initialize cache manager only if object cache is available and cache class is loaded
+        $cache_manager = null;
+        if (class_exists('WPGraphQL_Content_Filter_Cache')) {
+            $cache_manager = new WPGraphQL_Content_Filter_Cache();
+            $this->cache_manager = $cache_manager;
+        }
+
         // Initialize GraphQL hooks only if WPGraphQL is available
         if (class_exists('WPGraphQL') && class_exists('WPGraphQL_Content_Filter_GraphQL_Hooks')) {
             $this->graphql_hooks = new WPGraphQL_Content_Filter_GraphQL_Hooks(
                 $this->content_processor,
-                null // Skip cache manager to reduce memory usage
+                $cache_manager
             );
             $this->performance_data['modules_loaded']++;
         }
@@ -203,7 +274,7 @@ class WPGraphQL_Content_Filter_Core {
         if (!empty($options['apply_to_rest_api']) && class_exists('WPGraphQL_Content_Filter_REST_Hooks')) {
             $this->rest_hooks = new WPGraphQL_Content_Filter_REST_Hooks(
                 $this->content_processor,
-                null // Skip cache manager to reduce memory usage
+                $cache_manager
             );
             $this->performance_data['modules_loaded']++;
         }
@@ -529,6 +600,17 @@ class WPGraphQL_Content_Filter_Core {
      * @return void
      */
     private function __clone() {}
+
+    /**
+     * Check if object cache is available and functional.
+     *
+     * @return bool True if object cache is available, false otherwise.
+     */
+    private function is_object_cache_available() {
+        // For now, disable cache loading entirely to prevent memory issues
+        // Cache can be re-enabled once object cache plugins are confirmed working
+        return false;
+    }
 
     /**
      * Prevent unserialization of the instance.

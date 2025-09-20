@@ -58,7 +58,16 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
      */
     public function __construct($content_processor = null, $cache_manager = null) {
         $this->content_processor = $content_processor ?: new WPGraphQL_Content_Filter_Content_Processor();
-        $this->cache_manager = $cache_manager ?: new WPGraphQL_Content_Filter_Cache();
+        $this->cache_manager = $cache_manager; // Accept null if no cache is available
+    }
+
+    /**
+     * Check if cache is available.
+     *
+     * @return bool True if cache manager is available, false otherwise.
+     */
+    private function is_cache_available() {
+        return $this->cache_manager !== null;
     }
 
     /**
@@ -161,9 +170,31 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
      * @return void
      */
     private function register_rest_field_filters() {
+        // Memory protection - limit post types and add safety checks
+        $memory_before = memory_get_usage(true);
+        $memory_limit = wp_convert_hr_to_bytes(ini_get('memory_limit'));
+        
+        if ($memory_before > ($memory_limit * 0.7)) {
+            error_log("WPGraphQL Content Filter REST: Skipping registration - memory usage too high");
+            return;
+        }
+        
+        // Get post types with safety limit
         $post_types = get_post_types(['public' => true], 'names');
         
+        // Safety limit to prevent memory exhaustion
+        if (count($post_types) > 20) {
+            error_log("WPGraphQL Content Filter REST: Limiting post types from " . count($post_types) . " to 20 for memory safety");
+            $post_types = array_slice($post_types, 0, 20);
+        }
+        
         foreach ($post_types as $post_type) {
+            // Check memory per iteration
+            if (memory_get_usage(true) > ($memory_limit * 0.8)) {
+                error_log("WPGraphQL Content Filter REST: Stopping registration - memory limit approaching");
+                break;
+            }
+            
             // Register filtered content field
             register_rest_field($post_type, 'filtered_content', [
                 'get_callback' => [$this, 'get_filtered_content_callback'],
@@ -185,13 +216,20 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
             ]);
         }
 
-        // Register response filter for existing content fields
-        $this->register_hook_action(
+        // Register response filter for existing content fields with memory-safe hook registration
+        $this->register_hook_action_safe(
             'rest_prepare_post',
             [$this, 'filter_post_response'],
             10,
             3
         );
+        
+        $memory_after = memory_get_usage(true);
+        $memory_used = $memory_after - $memory_before;
+        
+        if ($memory_used > 5242880) { // 5MB
+            error_log("WPGraphQL Content Filter REST: WARNING - Registration used " . number_format($memory_used / 1048576, 2) . "MB of memory");
+        }
     }
 
     /**
@@ -309,20 +347,28 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
         $content_hash = md5($content);
         $options_hash = md5(serialize($options));
 
-        // Try to get from cache first
-        $cached_content = $this->cache_manager->get_filtered_content(
-            $content_hash,
-            $options_hash,
-            function() use ($content, $options) {
-                return $this->content_processor->process_content(
-                    $content,
-                    $options['filter_mode'] ?? 'strip_html',
-                    $options
-                );
-            }
-        );
+        // Try to get from cache first if cache is available
+        if ($this->is_cache_available()) {
+            $cached_content = $this->cache_manager->get_filtered_content(
+                $content_hash,
+                $options_hash,
+                function() use ($content, $options) {
+                    return $this->content_processor->process_content(
+                        $content,
+                        $options['filter_mode'] ?? 'strip_html',
+                        $options
+                    );
+                }
+            );
+            return $cached_content ?: '';
+        }
 
-        return $cached_content ?: '';
+        // Process content directly without cache
+        return $this->content_processor->process_content(
+            $content,
+            $options['filter_mode'] ?? 'strip_html',
+            $options
+        ) ?: '';
     }
 
     /**
@@ -346,20 +392,28 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
         $content_hash = md5($excerpt);
         $options_hash = md5(serialize($options));
 
-        // Try to get from cache first
-        $cached_content = $this->cache_manager->get_filtered_content(
-            $content_hash,
-            $options_hash,
-            function() use ($excerpt, $options) {
-                return $this->content_processor->process_content(
-                    $excerpt,
-                    $options['filter_mode'] ?? 'strip_html',
-                    $options
-                );
-            }
-        );
+        // Try to get from cache first if cache is available
+        if ($this->is_cache_available()) {
+            $cached_content = $this->cache_manager->get_filtered_content(
+                $content_hash,
+                $options_hash,
+                function() use ($excerpt, $options) {
+                    return $this->content_processor->process_content(
+                        $excerpt,
+                        $options['filter_mode'] ?? 'strip_html',
+                        $options
+                    );
+                }
+            );
+            return $cached_content ?: '';
+        }
 
-        return $cached_content ?: '';
+        // Process content directly without cache
+        return $this->content_processor->process_content(
+            $excerpt,
+            $options['filter_mode'] ?? 'strip_html',
+            $options
+        ) ?: '';
     }
 
     /**
@@ -477,6 +531,14 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
         $post_id = $request->get_param('post_id');
         $clear_all = $request->get_param('clear_all');
 
+        // Check if cache is available
+        if (!$this->is_cache_available()) {
+            return new WP_Error('cache_unavailable',
+                __('Cache manager not available', 'wpgraphql-content-filter'),
+                ['status' => 400]
+            );
+        }
+
         try {
             if ($clear_all) {
                 $this->cache_manager->flush();
@@ -510,8 +572,13 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
      * @return WP_REST_Response Response.
      */
     public function get_cache_stats_endpoint($request) {
-        $cache_stats = $this->cache_manager->get_stats();
+        // Get processor stats (always available)
         $processor_stats = $this->content_processor->get_stats();
+        
+        // Get cache stats if cache is available
+        $cache_stats = $this->is_cache_available() 
+            ? $this->cache_manager->get_stats()
+            : ['hits' => 0, 'misses' => 0, 'hit_rate' => 0];
 
         return new WP_REST_Response([
             'cache' => $cache_stats,
@@ -530,6 +597,18 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
     public function warm_cache_endpoint($request) {
         $post_ids = $request->get_param('post_ids') ?: [];
         $limit = $request->get_param('limit') ?: 50;
+
+        // Check if cache is available
+        if (!$this->is_cache_available()) {
+            return new WP_REST_Response([
+                'success' => false,
+                'message' => 'Cache manager not available',
+                'results' => [],
+                'total_processed' => 0,
+                'successful' => 0,
+                'failed' => 0,
+            ]);
+        }
 
         try {
             $results = $this->cache_manager->warm_cache($post_ids, []);
@@ -599,6 +678,37 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
 
     /**
      * Register an action hook and track it for cleanup.
+     *
+     * @param string   $hook     Hook name.
+     * @param callable $callback Callback function.
+     * @param int      $priority Hook priority.
+     * @param int      $args     Number of arguments.
+     * @return void
+     */
+    /**
+     * Register hook action with memory protection.
+     *
+     * @param string   $hook     Hook name.
+     * @param callable $callback Callback function.
+     * @param int      $priority Hook priority.
+     * @param int      $args     Number of arguments.
+     * @return void
+     */
+    private function register_hook_action_safe($hook, $callback, $priority = 10, $args = 1) {
+        add_action($hook, $callback, $priority, $args);
+        
+        // Store only lightweight signature instead of full callback data
+        $callback_sig = is_array($callback) ? get_class($callback[0]) . '::' . $callback[1] : $callback;
+        
+        $this->registered_hooks[] = [
+            'hook' => $hook,
+            'callback_sig' => $callback_sig,
+            'priority' => $priority,
+        ];
+    }
+
+    /**
+     * Register hook action with duplicate callback storage (legacy - causes memory issues).
      *
      * @param string   $hook     Hook name.
      * @param callable $callback Callback function.

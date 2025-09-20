@@ -345,7 +345,7 @@ Features and improvements in this release:
 create_package() {
     local version=$1
     local package_dir="${PLUGIN_NAME}-v${version}"
-    local package_zip="${PLUGIN_NAME}-v${version}.zip"
+    local package_zip="v${version}.zip"
     
     print_status "Creating self-contained release package..."
     
@@ -478,7 +478,7 @@ push_to_git() {
 create_github_release() {
     local version=$1
     local tag="v$version"
-    local package_zip="${PLUGIN_NAME}-v${version}.zip"
+    local package_zip="v${version}.zip"
     
     if command -v gh > /dev/null; then
         print_status "Creating GitHub release..."

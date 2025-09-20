@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.8] - 2025-01-17
+
+### Changed
+
+- **Emergency Mode**: Temporarily disabled GraphQL and REST API integrations due to 512MB memory exhaustion issue during hook registration
+- **Admin-Only Functionality**: Plugin now provides full admin interface and configuration management without API filtering
+- **Systematic Debugging**: Implemented comprehensive step-by-step initialization logging to isolate memory leak sources
+
+### Technical Notes
+
+- Root cause identified: Both REST and GraphQL hook registration processes cause excessive memory consumption
+- Memory leak isolated to API integration components, not core plugin functionality
+- Admin interface, options management, and core features remain fully functional
+
+## [2.0.7] - 2025-01-17
+
+### Fixed
+
+- **Memory Leak Resolution**: Fixed critical memory exhaustion issue in GraphQL hooks registration by replacing `serialize($callback)` with lightweight signature approach
+- **Hook Registration Optimization**: Implemented memory-efficient callback signature generation that prevents 512MB memory usage during hook registration
+- **Performance**: Eliminated expensive object serialization in duplicate hook prevention system
+
+## [2.0.6] - 2025-01-17
+
+### Fixed
+
+- **Dependency Loading**: Fixed "Class WPGraphQL_Content_Filter_Cache not found" error by ensuring cache class is always loaded when needed
+- **Memory Optimization**: Preserved memory optimizations while fixing critical dependency issue in GraphQL hooks initialization
+
+## [2.0.5] - 2025-01-17
+
+### Fixed
+
+- **Memory Optimization**: Significant memory usage improvements through conditional module loading and on-demand class initialization
+- **Performance**: Reduced memory footprint by loading only necessary components based on active features
+- **Hook Registration**: Prevented duplicate hook registration to avoid infinite loops
+- **Release Process**: Enhanced release script with better GitHub integration and error handling
+
 ## [1.0.9] - 2025-08-30
 
 ### Enhanced
