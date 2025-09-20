@@ -18,6 +18,53 @@ node_modules/
 .idea/
 *.sublime-project
 *.sublime-workspace
+
+# Composer (development only)
+vendor/
+composer.lock
+composer.phar
+composer.json
+
+# Build and release files
+build/
+dist/
+releases/
+*.zip
+*.tar.gz
+
+# Testing files
+tests/
+coverage/
+phpunit.xml
+phpunit.xml.dist
+.phpunit.result.cache
+
+# Development tools
+.php_cs.cache
+.php-cs-fixer.cache
+psalm.xml
+phpstan.neon
+
+# Logs
+*.log
+error_log
+debug.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
 
@@ -32,6 +79,11 @@ dist/
 build/
 *.zip
 *.tar.gz
+
+# Release directories and archives
+backup-pre-release-*
+wpgraphql-content-filter-v*.zip
+*.release.log
 
 # Environment files
 .env
@@ -48,3 +100,14 @@ languages/*.mo
 *.bak
 *.backup
 *~
+
+# Release management scripts
+release.sh
+validate-build.sh
+
+# Build documentation
+BUILD.md
+
+# Development configuration files
+phpunit.xml
+phpunit.xml.dist
