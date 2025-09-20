@@ -65,6 +65,34 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
     private $cache_misses = 0;
 
     /**
+     * Processing counter to detect runaway processes.
+     *
+     * @var int
+     */
+    private $processing_count = 0;
+
+    /**
+     * Maximum number of content processing operations per request.
+     *
+     * @var int
+     */
+    private $max_processing_per_request = 100;
+
+    /**
+     * Memory usage at start of request.
+     *
+     * @var int
+     */
+    private $initial_memory_usage = 0;
+
+    /**
+     * Constructor.
+     */
+    public function __construct() {
+        $this->initial_memory_usage = memory_get_usage(true);
+    }
+
+    /**
      * Apply content filtering with optimized processing.
      *
      * @param string $content The content to filter.
@@ -107,6 +135,7 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
      *
      * Implements multiple performance optimizations:
      * - Early bailout for invalid/empty content
+     * - Content size limits to prevent memory exhaustion
      * - Content hashing for cache key generation
      * - LRU cache management
      * - Pre-compiled pattern usage
@@ -117,6 +146,14 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
      * @return string Processed content.
      */
     public function process_content($content, $mode, $options) {
+        // Circuit breaker: Check for runaway processing
+        $this->processing_count++;
+        
+        if ($this->processing_count > $this->max_processing_per_request) {
+            error_log('WPGraphQL Content Filter: Circuit breaker triggered - too many processing requests (' . $this->processing_count . ')');
+            return $content; // Return original content to prevent runaway processing
+        }
+
         // Early bailouts for performance
         if (empty($content) || !is_string($content)) {
             return $content;
@@ -124,6 +161,30 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
 
         // Skip processing for very short content unless specifically requested
         if (strlen($content) < 10 && empty($options['force_processing'])) {
+            return $content;
+        }
+
+        // Content size limit to prevent memory exhaustion (256KB default for safety)
+        $max_content_size = $options['max_content_size'] ?? 262144; // 256KB
+        if (strlen($content) > $max_content_size) {
+            error_log('WPGraphQL Content Filter: Content exceeds maximum size (' . strlen($content) . ' bytes), truncating to prevent memory issues');
+            $content = substr($content, 0, $max_content_size) . '...';
+        }
+
+        // Memory usage check before processing - more aggressive limits
+        $memory_limit = ini_get('memory_limit');
+        $memory_limit_bytes = $this->convert_memory_limit_to_bytes($memory_limit);
+        $current_memory = memory_get_usage(true);
+        $memory_increase = $current_memory - $this->initial_memory_usage;
+        
+        if ($memory_limit_bytes && ($current_memory / $memory_limit_bytes) > 0.7) {
+            error_log('WPGraphQL Content Filter: High memory usage detected (' . round(($current_memory / $memory_limit_bytes) * 100, 2) . '%), skipping processing');
+            return $content;
+        }
+
+        // Check for excessive memory increase since start
+        if ($memory_increase > 50 * 1024 * 1024) { // 50MB increase
+            error_log('WPGraphQL Content Filter: Excessive memory increase detected (' . round($memory_increase / 1024 / 1024, 2) . 'MB), potential memory leak');
             return $content;
         }
 
@@ -138,8 +199,16 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
 
         $this->cache_misses++;
 
-        // Process content based on mode
+        // Process content based on mode with memory monitoring
+        $memory_before = memory_get_usage(true);
         $result = $this->apply_filter_strategy($content, $mode, $options);
+        $memory_after = memory_get_usage(true);
+        
+        // Log excessive memory usage for this operation
+        $operation_memory = $memory_after - $memory_before;
+        if ($operation_memory > 10 * 1024 * 1024) { // 10MB for single operation
+            error_log('WPGraphQL Content Filter: Single operation used ' . round($operation_memory / 1024 / 1024, 2) . 'MB, content size: ' . strlen($content) . ' bytes');
+        }
 
         // Cache the result with size management
         $this->cache_result($cache_key, $result);
@@ -193,28 +262,28 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
         // Convert headings
         if (!empty($options['preserve_headings'])) {
             foreach ($patterns['headings'] as $pattern => $replacement) {
-                $content = preg_replace($pattern, $replacement, $content);
+                $content = $this->safe_preg_replace($pattern, $replacement, $content);
             }
         }
 
         // Convert links
         if (!empty($options['preserve_links'])) {
             foreach ($patterns['links'] as $pattern => $replacement) {
-                $content = preg_replace($pattern, $replacement, $content);
+                $content = $this->safe_preg_replace($pattern, $replacement, $content);
             }
         }
 
         // Convert images
         if (!empty($options['preserve_images'])) {
             foreach ($patterns['images'] as $pattern => $replacement) {
-                $content = preg_replace($pattern, $replacement, $content);
+                $content = $this->safe_preg_replace($pattern, $replacement, $content);
             }
         }
 
         // Convert lists
         if (!empty($options['preserve_lists'])) {
             foreach ($patterns['lists'] as $pattern => $replacement) {
-                $content = preg_replace($pattern, $replacement, $content);
+                $content = $this->safe_preg_replace($pattern, $replacement, $content);
             }
         }
 
@@ -338,32 +407,32 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
         if ($this->markdown_patterns === null) {
             $this->markdown_patterns = [
                 'headings' => [
-                    '/<h1[^>]*>(.*?)<\/h1>/is' => '# $1',
-                    '/<h2[^>]*>(.*?)<\/h2>/is' => '## $1',
-                    '/<h3[^>]*>(.*?)<\/h3>/is' => '### $1',
-                    '/<h4[^>]*>(.*?)<\/h4>/is' => '#### $1',
-                    '/<h5[^>]*>(.*?)<\/h5>/is' => '##### $1',
-                    '/<h6[^>]*>(.*?)<\/h6>/is' => '###### $1',
+                    '/<h1[^>]*+>((?:[^<]++|<(?!\/h1>))*+)<\/h1>/i' => '# $1',
+                    '/<h2[^>]*+>((?:[^<]++|<(?!\/h2>))*+)<\/h2>/i' => '## $1',
+                    '/<h3[^>]*+>((?:[^<]++|<(?!\/h3>))*+)<\/h3>/i' => '### $1',
+                    '/<h4[^>]*+>((?:[^<]++|<(?!\/h4>))*+)<\/h4>/i' => '#### $1',
+                    '/<h5[^>]*+>((?:[^<]++|<(?!\/h5>))*+)<\/h5>/i' => '##### $1',
+                    '/<h6[^>]*+>((?:[^<]++|<(?!\/h6>))*+)<\/h6>/i' => '###### $1',
                 ],
                 'links' => [
-                    '/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/is' => '[$2]($1)',
+                    '/<a[^>]*+href="([^"]*+)"[^>]*+>((?:[^<]++|<(?!\/a>))*+)<\/a>/i' => '[$2]($1)',
                 ],
                 'images' => [
-                    '/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/is' => '![$2]($1)',
-                    '/<img[^>]*src="([^"]*)"[^>]*>/is' => '![]($1)',
+                    '/<img[^>]*+src="([^"]*+)"[^>]*+alt="([^"]*+)"[^>]*+>/i' => '![$2]($1)',
+                    '/<img[^>]*+src="([^"]*+)"[^>]*+>/i' => '![]($1)',
                 ],
                 'lists' => [
-                    '/<ul[^>]*>(.*?)<\/ul>/is' => '$1',
-                    '/<ol[^>]*>(.*?)<\/ol>/is' => '$1',
-                    '/<li[^>]*>(.*?)<\/li>/is' => '- $1',
+                    '/<ul[^>]*+>((?:[^<]++|<(?!\/ul>))*+)<\/ul>/i' => '$1',
+                    '/<ol[^>]*+>((?:[^<]++|<(?!\/ol>))*+)<\/ol>/i' => '$1',
+                    '/<li[^>]*+>((?:[^<]++|<(?!\/li>))*+)<\/li>/i' => '- $1',
                 ],
                 'formatting' => [
-                    '/<strong[^>]*>(.*?)<\/strong>/is' => '**$1**',
-                    '/<b[^>]*>(.*?)<\/b>/is' => '**$1**',
-                    '/<em[^>]*>(.*?)<\/em>/is' => '*$1*',
-                    '/<i[^>]*>(.*?)<\/i>/is' => '*$1*',
-                    '/<code[^>]*>(.*?)<\/code>/is' => '`$1`',
-                    '/<blockquote[^>]*>(.*?)<\/blockquote>/is' => '> $1',
+                    '/<strong[^>]*+>((?:[^<]++|<(?!\/strong>))*+)<\/strong>/i' => '**$1**',
+                    '/<b[^>]*+>((?:[^<]++|<(?!\/b>))*+)<\/b>/i' => '**$1**',
+                    '/<em[^>]*+>((?:[^<]++|<(?!\/em>))*+)<\/em>/i' => '*$1*',
+                    '/<i[^>]*+>((?:[^<]++|<(?!\/i>))*+)<\/i>/i' => '*$1*',
+                    '/<code[^>]*+>((?:[^<]++|<(?!\/code>))*+)<\/code>/i' => '`$1`',
+                    '/<blockquote[^>]*+>((?:[^<]++|<(?!\/blockquote>))*+)<\/blockquote>/i' => '> $1',
                 ],
             ];
         }
@@ -550,5 +619,64 @@ class WPGraphQL_Content_Filter_Content_Processor implements WPGraphQL_Content_Fi
                 true
             );
         }
+    }
+
+    /**
+     * Convert memory limit string to bytes.
+     *
+     * @param string $memory_limit Memory limit string (e.g., '128M', '1G').
+     * @return int Memory limit in bytes.
+     */
+    private function convert_memory_limit_to_bytes($memory_limit) {
+        if (empty($memory_limit) || $memory_limit === '-1') {
+            return 0; // Unlimited
+        }
+
+        $memory_limit = trim($memory_limit);
+        $unit = strtolower(substr($memory_limit, -1));
+        $value = (int) substr($memory_limit, 0, -1);
+
+        switch ($unit) {
+            case 'g':
+                return $value * 1024 * 1024 * 1024;
+            case 'm':
+                return $value * 1024 * 1024;
+            case 'k':
+                return $value * 1024;
+            default:
+                return (int) $memory_limit;
+        }
+    }
+
+    /**
+     * Safely perform preg_replace with error handling and timeout protection.
+     *
+     * @param string $pattern     Regular expression pattern.
+     * @param string $replacement Replacement string.
+     * @param string $subject     Subject string.
+     * @return string Processed string or original if error occurred.
+     */
+    private function safe_preg_replace($pattern, $replacement, $subject) {
+        // Set PCRE limits to prevent memory exhaustion
+        $old_backtrack_limit = ini_get('pcre.backtrack_limit');
+        $old_recursion_limit = ini_get('pcre.recursion_limit');
+        
+        ini_set('pcre.backtrack_limit', '10000');
+        ini_set('pcre.recursion_limit', '10000');
+
+        $result = @preg_replace($pattern, $replacement, $subject);
+        
+        // Check for PCRE errors
+        $preg_error = preg_last_error();
+        if ($preg_error !== PREG_NO_ERROR || $result === null) {
+            error_log('WPGraphQL Content Filter: PCRE error ' . $preg_error . ' for pattern: ' . $pattern);
+            $result = $subject; // Return original content if regex fails
+        }
+
+        // Restore original limits
+        ini_set('pcre.backtrack_limit', $old_backtrack_limit);
+        ini_set('pcre.recursion_limit', $old_recursion_limit);
+
+        return $result;
     }
 }

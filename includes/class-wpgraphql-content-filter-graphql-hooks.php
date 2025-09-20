@@ -82,11 +82,18 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      */
     public function register_hooks() {
         if ($this->hooks_registered) {
+            error_log('WPGraphQL Content Filter: Attempted to register hooks when already registered, preventing duplicate registration');
             return;
         }
 
         // Only register if WPGraphQL is available and enabled
         if (!$this->should_load()) {
+            return;
+        }
+
+        // Prevent duplicate registrations by checking if hooks are already registered
+        if (has_action('graphql_register_types', [$this, 'register_graphql_field_filters'])) {
+            error_log('WPGraphQL Content Filter: GraphQL hooks already registered, skipping');
             return;
         }
 

@@ -72,12 +72,117 @@ function wpgraphql_content_filter() {
 }
 
 /**
+ * Convert memory limit string to bytes.
+ *
+ * @param string $memory_limit Memory limit string (e.g., '128M', '1G').
+ * @return int Memory limit in bytes.
+ */
+function wpgraphql_content_filter_convert_memory_to_bytes($memory_limit) {
+    if (empty($memory_limit) || $memory_limit === '-1') {
+        return 0; // Unlimited
+    }
+
+    $memory_limit = trim($memory_limit);
+    $unit = strtolower(substr($memory_limit, -1));
+    $value = (int) substr($memory_limit, 0, -1);
+
+    switch ($unit) {
+        case 'g':
+            return $value * 1024 * 1024 * 1024;
+        case 'm':
+            return $value * 1024 * 1024;
+        case 'k':
+            return $value * 1024;
+        default:
+            return (int) $memory_limit;
+    }
+}
+
+/**
+ * Display low memory warning notice.
+ */
+function wpgraphql_content_filter_low_memory_notice() {
+    if (!current_user_can('activate_plugins')) {
+        return;
+    }
+    
+    $message = sprintf(
+        'WPGraphQL Content Filter: Low memory limit detected (%s). Consider increasing PHP memory_limit to 256M or higher for optimal performance.',
+        ini_get('memory_limit')
+    );
+    
+    printf('<div class="notice notice-warning"><p>%s</p></div>', esc_html($message));
+}
+
+/**
+ * Emergency memory monitor that disables processing if memory gets too high.
+ */
+function wpgraphql_content_filter_memory_monitor() {
+    static $monitoring_disabled = false;
+    
+    if ($monitoring_disabled) {
+        return; // Already disabled processing
+    }
+    
+    $memory_limit = ini_get('memory_limit');
+    $memory_bytes = wpgraphql_content_filter_convert_memory_to_bytes($memory_limit);
+    $current_memory = memory_get_usage(true);
+    
+    if ($memory_bytes && ($current_memory / $memory_bytes) > 0.85) {
+        error_log('WPGraphQL Content Filter: Memory usage critical (' . round(($current_memory / $memory_bytes) * 100, 2) . '%), disabling content processing');
+        
+        // Remove all GraphQL filters to prevent further processing
+        remove_all_filters('graphql_post_object_fields');
+        remove_all_filters('graphql_page_object_fields');
+        remove_all_filters('graphql_resolve_field');
+        
+        // Set flag to prevent re-enabling
+        $monitoring_disabled = true;
+        
+        // Log detailed memory information
+        error_log('WPGraphQL Content Filter Memory Status: Current=' . round($current_memory / 1024 / 1024, 2) . 'MB, Limit=' . round($memory_bytes / 1024 / 1024, 2) . 'MB');
+    }
+}
+
+/**
  * Initialize the plugin.
  */
 function wpgraphql_content_filter_init() {
+    // Emergency memory protection - disable plugin if memory is critically low
+    $memory_limit = ini_get('memory_limit');
+    $memory_bytes = wpgraphql_content_filter_convert_memory_to_bytes($memory_limit);
+    $current_memory = memory_get_usage(true);
+    
+    // If we're already using more than 90% of memory, disable the plugin
+    if ($memory_bytes && ($current_memory / $memory_bytes) > 0.9) {
+        error_log('WPGraphQL Content Filter: EMERGENCY - Memory usage at ' . round(($current_memory / $memory_bytes) * 100, 2) . '%, disabling plugin');
+        return; // Exit early to prevent further memory usage
+    }
+    
+    // Memory limit safety check
+    if ($memory_bytes && $memory_bytes < 134217728) { // Less than 128MB
+        error_log('WPGraphQL Content Filter: Low memory limit detected (' . $memory_limit . '). Consider increasing to 256M or higher.');
+        add_action('admin_notices', 'wpgraphql_content_filter_low_memory_notice');
+    }
+
+    // Add memory monitoring hook that runs on every request
+    add_action('init', 'wpgraphql_content_filter_memory_monitor', 1);
+
     // Check for WPGraphQL dependency for GraphQL features
     if (class_exists('WPGraphQL') || !empty(get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS)['apply_to_rest_api'])) {
-        wpgraphql_content_filter()->init();
+        try {
+            wpgraphql_content_filter()->init();
+        } catch (Exception $e) {
+            error_log('WPGraphQL Content Filter initialization error: ' . $e->getMessage());
+            add_action('admin_notices', function() use ($e) {
+                echo '<div class="notice notice-error"><p>';
+                echo sprintf(
+                    'WPGraphQL Content Filter encountered an error: %s',
+                    esc_html($e->getMessage())
+                );
+                echo '</p></div>';
+            });
+        }
     } else {
         // Show admin notice about missing dependency
         add_action('admin_notices', 'wpgraphql_content_filter_dependency_notice');
