@@ -23,7 +23,28 @@ if (!defined('ABSPATH')) {
  */
 class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter_Hook_Manager_Interface {
     /**
-     * Flag to track if hooks are registered.
+     * Fla    /**
+     * Register a field filter with duplicate prevention.
+     *
+     * @param string   $hook     Hook name.
+     * @param callable $callback Callback function.
+     * @param int      $priority Priority.
+     * @param int      $args     Number of arguments.
+     * @return void
+     */
+    private function register_field_filter($hook, $callback, $priority = 10, $args = 1) {
+        // Check if this exact hook/callback combination is already registered
+        $filter_signature = $hook . '::' . serialize($callback) . '::' . $priority;
+        
+        if (in_array($filter_signature, $this->registered_filters)) {
+            return; // Already registered, skip
+        }
+        
+        add_filter($hook, $callback, $priority, $args);
+        
+        // Store the signature instead of full data to save memory
+        $this->registered_filters[] = $filter_signature;
+    } are registered.
      *
      * @var bool
      */
@@ -114,11 +135,11 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             return;
         }
 
-        // Remove all registered filters
-        foreach ($this->registered_filters as $filter_data) {
-            remove_filter($filter_data['hook'], $filter_data['callback'], $filter_data['priority']);
-        }
-
+        // Since we're using simplified registration, we'll remove all filters
+        // registered by this class (this is less precise but saves memory)
+        remove_all_filters('graphql_register_types');
+        
+        // Clear the registration tracking
         $this->registered_filters = [];
         $this->hooks_registered = false;
     }

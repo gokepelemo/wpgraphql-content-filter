@@ -58,16 +58,15 @@ if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION')) {
 
 
 /**
- * Load core orchestrator and initialize the plugin.
- */
-require_once WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR . 'includes/class-wpgraphql-content-filter-core.php';
-
-/**
  * Get the main plugin instance.
  *
  * @return WPGraphQL_Content_Filter_Core The main plugin instance.
  */
 function wpgraphql_content_filter() {
+    // Load core orchestrator only when needed
+    if (!class_exists('WPGraphQL_Content_Filter_Core')) {
+        require_once WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR . 'includes/class-wpgraphql-content-filter-core.php';
+    }
     return WPGraphQL_Content_Filter_Core::get_instance();
 }
 

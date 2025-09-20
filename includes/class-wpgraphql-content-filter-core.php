@@ -154,50 +154,59 @@ class WPGraphQL_Content_Filter_Core {
     private function load_dependencies() {
         $includes_path = plugin_dir_path(__FILE__);
 
-        // Load interfaces
+        // Load only essential interfaces first
         require_once $includes_path . 'interfaces/interface-content-filter.php';
-        require_once $includes_path . 'interfaces/interface-cache-provider.php';
-        require_once $includes_path . 'interfaces/interface-hook-manager.php';
-
-        // Load core modules
+        
+        // Load core modules only as needed
         require_once $includes_path . 'class-wpgraphql-content-filter-options.php';
-        require_once $includes_path . 'class-wpgraphql-content-filter-cache.php';
         require_once $includes_path . 'class-wpgraphql-content-filter-content-processor.php';
-        require_once $includes_path . 'class-wpgraphql-content-filter-graphql-hooks.php';
-        require_once $includes_path . 'class-wpgraphql-content-filter-rest-hooks.php';
+        
+        // Load GraphQL hooks only if WPGraphQL is active
+        if (class_exists('WPGraphQL')) {
+            require_once $includes_path . 'interfaces/interface-hook-manager.php';
+            require_once $includes_path . 'class-wpgraphql-content-filter-graphql-hooks.php';
+        }
+        
+        // Load REST hooks only if REST API filtering is enabled
+        $options = get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, []);
+        if (!empty($options['apply_to_rest_api'])) {
+            require_once $includes_path . 'class-wpgraphql-content-filter-rest-hooks.php';
+        }
 
-        // Load admin interface if in admin context
+        // Load admin interface only if in admin context
         if (is_admin()) {
             require_once $includes_path . 'class-wpgraphql-content-filter-admin.php';
         }
     }
 
     /**
-     * Initialize core modules.
+     * Initialize core modules with minimal memory footprint.
      *
      * @return void
      */
     private function init_modules() {
-        // Initialize cache manager first (other modules depend on it)
-        $this->cache_manager = new WPGraphQL_Content_Filter_Cache();
-        $this->performance_data['modules_loaded']++;
-
-        // Initialize content processor
+        // Initialize content processor (required)
         $this->content_processor = new WPGraphQL_Content_Filter_Content_Processor();
         $this->performance_data['modules_loaded']++;
 
-        // Initialize hook managers with dependencies
-        $this->graphql_hooks = new WPGraphQL_Content_Filter_GraphQL_Hooks(
-            $this->content_processor,
-            $this->cache_manager
-        );
-        $this->performance_data['modules_loaded']++;
+        // Initialize GraphQL hooks only if WPGraphQL is available
+        if (class_exists('WPGraphQL') && class_exists('WPGraphQL_Content_Filter_GraphQL_Hooks')) {
+            $this->graphql_hooks = new WPGraphQL_Content_Filter_GraphQL_Hooks(
+                $this->content_processor,
+                null // Skip cache manager to reduce memory usage
+            );
+            $this->performance_data['modules_loaded']++;
+        }
 
-        $this->rest_hooks = new WPGraphQL_Content_Filter_REST_Hooks(
-            $this->content_processor,
-            $this->cache_manager
-        );
-        $this->performance_data['modules_loaded']++;
+        // Initialize REST hooks only if needed
+        $options = get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, []);
+        if (!empty($options['apply_to_rest_api']) && class_exists('WPGraphQL_Content_Filter_REST_Hooks')) {
+            $this->rest_hooks = new WPGraphQL_Content_Filter_REST_Hooks(
+                $this->content_processor,
+                null // Skip cache manager to reduce memory usage
+            );
+            $this->performance_data['modules_loaded']++;
+        }
 
         // Initialize admin interface if in admin context
         if (is_admin()) {
