@@ -23,28 +23,7 @@ if (!defined('ABSPATH')) {
  */
 class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter_Hook_Manager_Interface {
     /**
-     * Fla    /**
-     * Register a field filter with duplicate prevention.
-     *
-     * @param string   $hook     Hook name.
-     * @param callable $callback Callback function.
-     * @param int      $priority Priority.
-     * @param int      $args     Number of arguments.
-     * @return void
-     */
-    private function register_field_filter($hook, $callback, $priority = 10, $args = 1) {
-        // Check if this exact hook/callback combination is already registered
-        $filter_signature = $hook . '::' . serialize($callback) . '::' . $priority;
-        
-        if (in_array($filter_signature, $this->registered_filters)) {
-            return; // Already registered, skip
-        }
-        
-        add_filter($hook, $callback, $priority, $args);
-        
-        // Store the signature instead of full data to save memory
-        $this->registered_filters[] = $filter_signature;
-    } are registered.
+     * Flag to track if hooks are registered.
      *
      * @var bool
      */
@@ -657,14 +636,17 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
      * @return void
      */
     private function register_field_filter($hook, $callback, $priority = 10, $args = 1) {
+        // Check if this exact hook/callback combination is already registered
+        $filter_signature = $hook . '::' . serialize($callback) . '::' . $priority;
+        
+        if (in_array($filter_signature, $this->registered_filters)) {
+            return; // Already registered, skip
+        }
+        
         add_filter($hook, $callback, $priority, $args);
         
-        $this->registered_filters[] = [
-            'hook' => $hook,
-            'callback' => $callback,
-            'priority' => $priority,
-            'args' => $args,
-        ];
+        // Store the signature instead of full data to save memory
+        $this->registered_filters[] = $filter_signature;
     }
 
     /**
