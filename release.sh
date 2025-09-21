@@ -344,8 +344,8 @@ Features and improvements in this release:
 # Function to create release package
 create_package() {
     local version=$1
-    local package_dir="${PLUGIN_NAME}-v${version}"
-    local package_zip="v${version}.zip"
+    local package_dir="${PLUGIN_NAME}"
+    local package_zip="${PLUGIN_NAME}-${version}.zip"
     
     print_status "Creating self-contained release package..."
     
@@ -478,7 +478,7 @@ push_to_git() {
 create_github_release() {
     local version=$1
     local tag="v$version"
-    local package_zip="v${version}.zip"
+    local package_zip="${PLUGIN_NAME}-${version}.zip"
     
     if command -v gh > /dev/null; then
         print_status "Creating GitHub release..."
@@ -603,12 +603,12 @@ cleanup_old_releases() {
     fi
     
     # Keep the current version zip file and one previous version
-    local zip_files=($(find . -maxdepth 1 -name "${PLUGIN_NAME}-v*.zip" | sort -V))
+    local zip_files=($(find . -maxdepth 1 -name "${PLUGIN_NAME}-*.zip" | sort -V))
     if [ ${#zip_files[@]} -gt 2 ]; then
         local files_to_remove=("${zip_files[@]:0:$((${#zip_files[@]}-2))}")
         for file_to_remove in "${files_to_remove[@]}"; do
             # Don't remove the current version zip file
-            if [[ "$file_to_remove" != *"v${current_version}.zip" ]]; then
+            if [[ "$file_to_remove" != *"${current_version}.zip" ]]; then
                 print_status "Removing old archive: $(basename "$file_to_remove")"
                 rm -f "$file_to_remove"
             fi
@@ -623,7 +623,7 @@ verify_git_ignore() {
     print_status "Verifying .gitignore configuration..."
     
     # Check if release files are properly ignored
-    local git_zips=($(git ls-files | grep "${PLUGIN_NAME}-v.*\.zip$"))
+    local git_zips=($(git ls-files | grep "${PLUGIN_NAME}-.*\.zip$"))
     if [ ${#git_zips[@]} -gt 0 ]; then
         print_warning "Found zip files in git repository. Consider adding *.zip to .gitignore"
     fi
@@ -678,7 +678,7 @@ release() {
     echo "=================================================================="
     print_success "Release process completed successfully!"
     print_success "Version: $new_version"
-    print_success "Package: ${PLUGIN_NAME}-v${new_version}.zip"
+    print_success "Package: ${PLUGIN_NAME}-${new_version}.zip"
     echo ""
     print_status "Next steps:"
     echo "  1. Update WordPress.org plugin (if applicable)"

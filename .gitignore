@@ -111,3 +111,7 @@ BUILD.md
 # Development configuration files
 phpunit.xml
 phpunit.xml.dist
+
+# Claude AI files
+.claude/
+CLAUDE.md
