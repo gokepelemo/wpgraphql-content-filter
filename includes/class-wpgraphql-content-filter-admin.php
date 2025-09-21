@@ -177,21 +177,7 @@ class WPGraphQL_Content_Filter_Admin {
      * Add all settings fields.
      */
     private function add_settings_fields() {
-        // API Targets
-        add_settings_field(
-            'apply_to_rest_api',
-            'WordPress REST API',
-            [$this, 'render_checkbox_field'],
-            'wpgraphql-content-filter',
-            'general_settings',
-            [
-                'field' => 'apply_to_rest_api',
-                'label' => 'Enable content filtering for WordPress REST API responses',
-                'description' => 'When enabled, the content filter will be applied to REST API responses (e.g., /wp-json/wp/v2/posts). This is separate from WPGraphQL filtering.'
-            ]
-        );
-
-        // Filter Mode
+        // Filter Mode - Primary setting, should be first
         add_settings_field(
             'filter_mode',
             'Filter Mode',
@@ -206,6 +192,20 @@ class WPGraphQL_Content_Filter_Admin {
                     'convert_to_markdown' => 'Convert to Markdown'
                 ],
                 'default' => 'convert_to_markdown'
+            ]
+        );
+
+        // API Targets
+        add_settings_field(
+            'apply_to_rest_api',
+            'WordPress REST API',
+            [$this, 'render_checkbox_field'],
+            'wpgraphql-content-filter',
+            'general_settings',
+            [
+                'field' => 'apply_to_rest_api',
+                'label' => 'Enable content filtering for WordPress REST API responses',
+                'description' => 'When enabled, the content filter will be applied to REST API responses (e.g., /wp-json/wp/v2/posts). This is separate from WPGraphQL filtering.'
             ]
         );
 
