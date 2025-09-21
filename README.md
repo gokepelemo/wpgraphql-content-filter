@@ -272,8 +272,8 @@ You can also filter content programmatically using the new modular architecture:
 
 ```php
 // Get manager instances (v2.1.0+)
-$options_manager = WPGraphQL_Content_Filter_Options_Manager::getInstance();
-$content_filter = WPGraphQL_Content_Filter_Content_Filter::getInstance();
+$options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+$content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
 
 // Get current options
 $options = $options_manager->get_options();
@@ -288,8 +288,8 @@ $filtered_content = $content_filter->filter_field_content(
 // Hook into GraphQL filtering
 add_filter('graphql_post_object_content', function($content, $post, $context) {
     if ($post->post_type === 'custom_post_type') {
-        $content_filter = WPGraphQL_Content_Filter_Content_Filter::getInstance();
-        $options = WPGraphQL_Content_Filter_Options_Manager::getInstance()->get_options();
+        $content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
+        $options = WPGraphQL_Content_Filter_Options_Manager::get_instance()->get_options();
         return $content_filter->filter_field_content($content, 'content', $options);
     }
     return $content;
