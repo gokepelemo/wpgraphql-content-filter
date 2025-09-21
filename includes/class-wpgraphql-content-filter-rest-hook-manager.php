@@ -80,15 +80,8 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
      * Register REST API response hooks for all public post types.
      */
     public function register_rest_hooks() {
-        $options = $this->options_manager->get_options();
-        
-        // Only register REST API hooks if the setting is enabled
-        if (empty($options['apply_to_rest_api'])) {
-            return;
-        }
-        
         $post_types = $this->get_rest_post_types();
-        
+
         foreach ($post_types as $post_type) {
             $this->add_rest_response_filter($post_type);
         }
@@ -121,29 +114,61 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
      * @return WP_REST_Response
      */
     public function filter_rest_response($response, $post, $request) {
-        // Check if filtering is enabled for this post type
-        if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+        // Early return if dependencies aren't properly initialized
+        if (!$this->options_manager || !$this->content_filter) {
             return $response;
         }
 
-        $options = $this->options_manager->get_options();
-
-        // Filter content field if present and enabled
-        if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
-            $response->data['content']['rendered'] = $this->content_filter->filter_field_content(
-                $response->data['content']['rendered'],
-                'content',
-                $options
-            );
+        // Ensure we have a valid post object
+        if (!is_object($post) || !isset($post->post_type)) {
+            return $response;
         }
 
-        // Filter excerpt field if present and enabled
-        if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
-            $response->data['excerpt']['rendered'] = $this->content_filter->filter_field_content(
-                $response->data['excerpt']['rendered'],
-                'excerpt',
-                $options
-            );
+        try {
+            $options = $this->options_manager->get_options();
+
+            // Check if REST API filtering is enabled
+            if (empty($options['apply_to_rest_api'])) {
+                return $response;
+            }
+
+            // Check if filtering is enabled for this post type
+            if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+                return $response;
+            }
+        } catch (Exception $e) {
+            // Log error if WP_DEBUG is enabled
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter REST Error: ' . $e->getMessage());
+            }
+            return $response;
+        }
+
+        // Apply filtering with error handling
+        try {
+            // Filter content field if present and enabled
+            if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
+                $response->data['content']['rendered'] = $this->content_filter->filter_field_content(
+                    $response->data['content']['rendered'],
+                    'content',
+                    $options
+                );
+            }
+
+            // Filter excerpt field if present and enabled
+            if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
+                $response->data['excerpt']['rendered'] = $this->content_filter->filter_field_content(
+                    $response->data['excerpt']['rendered'],
+                    'excerpt',
+                    $options
+                );
+            }
+        } catch (Exception $e) {
+            // Log error if WP_DEBUG is enabled
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter REST Filtering Error: ' . $e->getMessage());
+            }
+            // Return original response if filtering fails
         }
 
         return $response;
