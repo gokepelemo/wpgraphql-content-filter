@@ -148,20 +148,24 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
         try {
             // Filter content field if present and enabled
             if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
-                $response->data['content']['rendered'] = $this->content_filter->filter_field_content(
-                    $response->data['content']['rendered'],
+                $content = $this->decode_content($response->data['content']['rendered']);
+                $filtered_content = $this->content_filter->filter_field_content(
+                    $content,
                     'content',
                     $options
                 );
+                $response->data['content']['rendered'] = $filtered_content;
             }
 
             // Filter excerpt field if present and enabled
             if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
-                $response->data['excerpt']['rendered'] = $this->content_filter->filter_field_content(
-                    $response->data['excerpt']['rendered'],
+                $excerpt = $this->decode_content($response->data['excerpt']['rendered']);
+                $filtered_excerpt = $this->content_filter->filter_field_content(
+                    $excerpt,
                     'excerpt',
                     $options
                 );
+                $response->data['excerpt']['rendered'] = $filtered_excerpt;
             }
         } catch (Exception $e) {
             // Log error if WP_DEBUG is enabled
@@ -172,5 +176,44 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
         }
 
         return $response;
+    }
+
+    /**
+     * Decode content that may be JSON-encoded or contain HTML entities.
+     *
+     * @param string $content The content to decode.
+     * @return string Decoded content.
+     */
+    private function decode_content($content) {
+        if (!is_string($content)) {
+            return $content;
+        }
+
+        $original_content = $content;
+
+        // Handle JSON unicode escapes (like \u003C for <)
+        if (strpos($content, '\\u') !== false) {
+            // Use preg_replace_callback to decode unicode escapes
+            $content = preg_replace_callback('/\\\\u([0-9a-fA-F]{4})/', function($matches) {
+                return mb_convert_encoding(pack('H*', $matches[1]), 'UTF-8', 'UTF-16BE');
+            }, $content);
+
+            // If preg_replace_callback failed, fall back to json_decode method
+            if ($content === null || $content === false) {
+                try {
+                    $content = json_decode('"' . addcslashes($original_content, '"\\') . '"');
+                    if ($content === null) {
+                        $content = $original_content;
+                    }
+                } catch (Exception $e) {
+                    $content = $original_content;
+                }
+            }
+        }
+
+        // Decode HTML entities
+        $content = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        return $content;
     }
 }
