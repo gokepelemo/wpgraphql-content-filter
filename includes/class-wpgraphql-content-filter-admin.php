@@ -5,7 +5,7 @@
  * Provides admin interface, settings pages, and management tools.
  *
  * @package WPGraphQL_Content_Filter
- * @since 1.0.0
+ * @since 2.1.0
  */
 
 // Exit if accessed directly.
@@ -17,42 +17,73 @@ if (!defined('ABSPATH')) {
  * Class WPGraphQL_Content_Filter_Admin
  *
  * Handles all admin interface functionality including settings pages,
- * diagnostics, cache management, and performance monitoring.
+ * diagnostics, cache management, and performance monitoring using the
+ * modular architecture with dependency injection.
  *
- * @since 1.0.0
+ * @since 2.1.0
  */
 class WPGraphQL_Content_Filter_Admin {
     /**
-     * Cache manager instance.
+     * Singleton instance.
      *
-     * @var WPGraphQL_Content_Filter_Cache
+     * @var WPGraphQL_Content_Filter_Admin
      */
-    private $cache_manager;
+    private static $instance = null;
 
     /**
-     * Content processor instance.
+     * Options manager instance.
      *
-     * @var WPGraphQL_Content_Filter_Content_Processor
+     * @var WPGraphQL_Content_Filter_Options_Manager
      */
-    private $content_processor;
+    private $options_manager;
 
     /**
-     * Constructor.
+     * Content filter instance.
      *
-     * @param WPGraphQL_Content_Filter_Cache            $cache_manager    Cache manager instance.
-     * @param WPGraphQL_Content_Filter_Content_Processor $content_processor Content processor instance.
+     * @var WPGraphQL_Content_Filter_Content_Filter
      */
-    public function __construct($cache_manager, $content_processor) {
-        $this->cache_manager = $cache_manager;
-        $this->content_processor = $content_processor;
+    private $content_filter;
+
+    /**
+     * Constructor (private for singleton).
+     */
+    private function __construct() {
+        // Dependencies will be injected via init method
     }
 
     /**
-     * Initialize admin interface.
+     * Get singleton instance.
+     *
+     * @return WPGraphQL_Content_Filter_Admin
+     */
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    /**
+     * Initialize with dependencies.
+     *
+     * @param WPGraphQL_Content_Filter_Options_Manager $options_manager Options manager instance.
+     * @param WPGraphQL_Content_Filter_Content_Filter  $content_filter  Content filter instance.
+     * @return void
+     */
+    public function init($options_manager, $content_filter) {
+        $this->options_manager = $options_manager;
+        $this->content_filter = $content_filter;
+
+        // Initialize admin hooks
+        $this->init_hooks();
+    }
+
+    /**
+     * Initialize admin hooks.
      *
      * @return void
      */
-    public function init() {
+    private function init_hooks() {
         add_action('admin_menu', [$this, 'add_admin_menu']);
         add_action('admin_init', [$this, 'register_settings']);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets']);
@@ -911,21 +942,16 @@ class WPGraphQL_Content_Filter_Admin {
 
         switch ($action) {
             case 'clear':
-                $this->cache_manager->flush();
+                $this->options_manager->clear_options_cache();
                 wp_send_json_success(__('Cache cleared successfully.', 'wpgraphql-content-filter'));
                 break;
 
             case 'warm':
-                // Warm cache for recent posts
-                $recent_posts = get_posts([
-                    'numberposts' => 20,
-                    'post_status' => 'publish',
-                    'fields' => 'ids'
-                ]);
+                // Clear cache and force regeneration for recent posts
+                $this->options_manager->clear_options_cache();
                 
-                if (!empty($recent_posts)) {
-                    $this->cache_manager->warm_cache($recent_posts);
-                }
+                // Trigger cache warming by getting fresh options
+                $this->options_manager->get_options();
                 
                 wp_send_json_success(__('Cache warmed successfully.', 'wpgraphql-content-filter'));
                 break;
@@ -1186,12 +1212,13 @@ class WPGraphQL_Content_Filter_Admin {
         foreach ($sites as $site) {
             switch_to_blog($site->blog_id);
             
-            // Update the site's options with network defaults
-            $site_options = get_option('wpgraphql_content_filter_options', []);
+            // Update the site's options with network defaults using Options Manager
+            $site_options = $this->options_manager->get_options();
             
             // Merge network options with site options (network takes precedence)
             $updated_options = array_merge($site_options, $network_options);
             
+            // Update using WordPress core function (our Options Manager is for reading)
             update_option('wpgraphql_content_filter_options', $updated_options);
             $synced_count++;
             
@@ -1221,7 +1248,7 @@ class WPGraphQL_Content_Filter_Admin {
      * @return array
      */
     public function get_effective_options() {
-        $site_options = get_option('wpgraphql_content_filter_options', []);
+        $site_options = $this->options_manager->get_options();
         
         if ($this->are_network_settings_enforced()) {
             $network_options = get_site_option('wpgraphql_content_filter_network_options', []);

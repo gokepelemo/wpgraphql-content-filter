@@ -4,6 +4,8 @@ A WordPress plugin that cleans and filters HTML content in both WPGraphQL and RE
 
 This plugin is particularly valuable in two scenarios: when migrating from a traditional themed WordPress site to a headless architecture, and when a themed WordPress site needs to serve clean content to external applications via API. In both cases, existing content may contain unwanted HTML markup that needs to be filtered or sanitized before being consumed by other systems.
 
+**Version 2.1.0** features a completely refactored modular architecture with clean separation of concerns, dependency injection, and improved maintainability while preserving all existing functionality.
+
 The plugin was developed using Claude 4 Sonnet.
 
 ## Features
@@ -216,21 +218,27 @@ Settings: p,strong,em
 
 ### Plugin Architecture
 
-The plugin uses a modular architecture with separated concerns:
+The plugin uses a **modular architecture** with clean separation of concerns and dependency injection (v2.1.0+):
 
-**Content Filtering Layer:**
+**Core Bootstrap Class:**
+- `WPGraphQL_Content_Filter` - Main plugin orchestrator that coordinates all components
 
-- `filter_field_content()` - Universal content filtering logic
-- `apply_filter()` - Core filtering implementation with mode switching
-- Individual filtering methods for each mode (strip tags, markdown, etc.)
+**Manager Classes:**
+- `WPGraphQL_Content_Filter_Options_Manager` - Handles all plugin settings, caching, and multisite support
+- `WPGraphQL_Content_Filter_Content_Filter` - Universal content filtering engine with multiple modes
+- `WPGraphQL_Content_Filter_GraphQL_Hook_Manager` - WPGraphQL integration and hook management
+- `WPGraphQL_Content_Filter_REST_Hook_Manager` - WordPress REST API integration
+- `WPGraphQL_Content_Filter_Admin` - Complete admin interface with conditional UI
 
-**API Hook Layer:**
+**Key Benefits:**
+- **Singleton Pattern**: Consistent performance across all managers
+- **Dependency Injection**: Clean dependency management between components
+- **Separation of Concerns**: Each class has a single, well-defined responsibility
+- **Maintainability**: Modular code is easier to debug, test, and extend
+- **Error Prevention**: Proper initialization sequence eliminates potential fatal errors
 
-- `register_graphql_hooks()` - Sets up GraphQL field filters
-- `register_rest_hooks()` - Sets up REST API response filters
-- Separate filter methods for each API (`filter_content`, `filter_excerpt`, `filter_rest_response`)
-
-This separation makes the plugin easily extensible for additional APIs or filtering modes.
+**Legacy Architecture (pre-v2.1.0):**
+Previous versions used a monolithic structure. The v2.1.0 refactor maintains complete backward compatibility while providing a foundation for future development.
 
 ### Custom Post Type Support
 
@@ -260,17 +268,29 @@ The plugin works slightly differently for each API:
 
 ### Programmatic Filtering
 
-You can also filter content programmatically:
+You can also filter content programmatically using the new modular architecture:
 
 ```php
-// Get the plugin instance
-$filter = WPGraphQL_Content_Filter::getInstance();
+// Get manager instances (v2.1.0+)
+$options_manager = WPGraphQL_Content_Filter_Options_Manager::getInstance();
+$content_filter = WPGraphQL_Content_Filter_Content_Filter::getInstance();
 
-// Apply custom filtering
+// Get current options
+$options = $options_manager->get_options();
+
+// Apply custom filtering directly
+$filtered_content = $content_filter->filter_field_content(
+    $raw_content, 
+    'content', 
+    $options
+);
+
+// Hook into GraphQL filtering
 add_filter('graphql_post_object_content', function($content, $post, $context) {
     if ($post->post_type === 'custom_post_type') {
-        // Custom filtering logic here
-        return wp_strip_all_tags($content);
+        $content_filter = WPGraphQL_Content_Filter_Content_Filter::getInstance();
+        $options = WPGraphQL_Content_Filter_Options_Manager::getInstance()->get_options();
+        return $content_filter->filter_field_content($content, 'content', $options);
     }
     return $content;
 }, 5, 3); // Priority 5 to run before the plugin's filter
@@ -304,6 +324,37 @@ add_filter('wpgraphql_content_filter_options', function($options) {
 - `wpgraphql_content_filter_settings_saved` - Fired when settings are saved
 
 ## Changelog
+
+### 2.1.0 - 2025-01-22
+
+**Complete Modular Architecture Refactor**
+
+This major refactor transforms the plugin from a monolithic structure to a clean, modular architecture while maintaining 100% backward compatibility and preserving all existing functionality.
+
+**New Architecture:**
+- Complete separation of concerns with 5 specialized manager classes
+- Singleton pattern implementation for consistent performance
+- Dependency injection for clean component coordination
+- Improved error handling and initialization sequence
+
+**Core Classes:**
+- `WPGraphQL_Content_Filter_Options_Manager` (442 lines) - Complete options management with caching and multisite support
+- `WPGraphQL_Content_Filter_Content_Filter` (218 lines) - Universal content filtering engine
+- `WPGraphQL_Content_Filter_GraphQL_Hook_Manager` (175 lines) - WPGraphQL integration
+- `WPGraphQL_Content_Filter_REST_Hook_Manager` (107 lines) - REST API integration  
+- `WPGraphQL_Content_Filter_Admin` (1,235 lines) - Complete admin interface
+
+**Benefits:**
+- **Maintainability**: Modular code is easier to debug, test, and extend
+- **Performance**: Singleton pattern ensures efficient resource usage
+- **Reliability**: Proper initialization sequence eliminates potential fatal errors
+- **Developer Experience**: Clean class structure simplifies customization and extension
+- **Future-Proof**: Foundation for additional features and API integrations
+
+**File Cleanup:**
+- Removed 16 obsolete files and 3 directories
+- Eliminated redundant code and unused interfaces
+- Streamlined codebase while preserving all functionality
 
 ### 2.0.8 - 2025-09-20
 

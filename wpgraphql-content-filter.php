@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 2.0.9
+ * Version: 2.1.0
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -33,7 +33,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.0.9');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.1.0');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -142,16 +142,56 @@ function wpgraphql_content_filter_init() {
 add_action('plugins_loaded', 'wpgraphql_content_filter_init');
 
 /**
- * Main plugin class
+ * Main plugin class - refactored to use modular architecture
  */
 class WPGraphQL_Content_Filter {
     
-    private static $instance = null;
-    private $options_cache = [];
-    private $network_options_cache = null;
-    
     /**
-     * Get singleton instance
+     * Singleton instance.
+     *
+     * @var WPGraphQL_Content_Filter
+     */
+    private static $instance = null;
+
+    /**
+     * Options Manager instance.
+     *
+     * @var WPGraphQL_Content_Filter_Options_Manager
+     */
+    private $options_manager;
+
+    /**
+     * Content Filter instance.
+     *
+     * @var WPGraphQL_Content_Filter_Content_Filter
+     */
+    private $content_filter;
+
+    /**
+     * GraphQL Hook Manager instance.
+     *
+     * @var WPGraphQL_Content_Filter_GraphQL_Hook_Manager
+     */
+    private $graphql_hook_manager;
+
+    /**
+     * REST Hook Manager instance.
+     *
+     * @var WPGraphQL_Content_Filter_REST_Hook_Manager
+     */
+    private $rest_hook_manager;
+
+    /**
+     * Admin Manager instance.
+     *
+     * @var WPGraphQL_Content_Filter_Admin
+     */
+    private $admin_manager;
+
+    /**
+     * Get singleton instance.
+     *
+     * @return WPGraphQL_Content_Filter
      */
     public static function getInstance() {
         if (self::$instance === null) {
@@ -161,57 +201,80 @@ class WPGraphQL_Content_Filter {
     }
     
     /**
-     * Private constructor to prevent direct instantiation
+     * Private constructor to prevent direct instantiation.
      */
     private function __construct() {
-        add_action('init', [$this, 'init']);
+        $this->load_dependencies();
+        $this->init_managers();
+        $this->init_hooks();
+    }
+
+    /**
+     * Load all required class files.
+     *
+     * @return void
+     */
+    private function load_dependencies() {
+        $includes_dir = plugin_dir_path(__FILE__) . 'includes/';
         
-        // Add admin hooks based on context
-        if (is_multisite()) {
-            add_action('network_admin_menu', [$this, 'add_network_admin_menu']);
-            add_action('network_admin_edit_wpgraphql_content_filter_network', [$this, 'save_network_options']);
-            add_action('admin_menu', [$this, 'add_site_admin_menu']);
-        } else {
-            add_action('admin_menu', [$this, 'add_admin_menu']);
-            // Also add network admin menu for non-multisite installations (useful for mu-plugins)
-            add_action('network_admin_menu', [$this, 'add_network_admin_menu']);
-            add_action('network_admin_edit_wpgraphql_content_filter_network', [$this, 'save_network_options']);
+        require_once $includes_dir . 'class-wpgraphql-content-filter-options-manager.php';
+        require_once $includes_dir . 'class-wpgraphql-content-filter-content-filter.php';
+        require_once $includes_dir . 'class-wpgraphql-content-filter-graphql-hook-manager.php';
+        require_once $includes_dir . 'class-wpgraphql-content-filter-rest-hook-manager.php';
+        require_once $includes_dir . 'class-wpgraphql-content-filter-admin.php';
+    }
+
+    /**
+     * Initialize all manager instances.
+     *
+     * @return void
+     */
+    private function init_managers() {
+        // Initialize Options Manager first (core dependency)
+        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+
+        // Initialize Content Filter (gets its own Options Manager instance)
+        $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
+
+        // Initialize Hook Managers with their dependencies
+        $this->graphql_hook_manager = WPGraphQL_Content_Filter_GraphQL_Hook_Manager::get_instance();
+        $this->graphql_hook_manager->init($this->options_manager, $this->content_filter);
+
+        $this->rest_hook_manager = WPGraphQL_Content_Filter_REST_Hook_Manager::get_instance();
+        $this->rest_hook_manager->init($this->options_manager, $this->content_filter);
+
+        // Initialize Admin Manager (only in admin context)
+        if (is_admin()) {
+            $this->admin_manager = WPGraphQL_Content_Filter_Admin::get_instance();
+            $this->admin_manager->init($this->options_manager, $this->content_filter);
         }
-        
-        add_action('admin_init', [$this, 'admin_init']);
+    }
+
+    /**
+     * Initialize plugin hooks.
+     *
+     * @return void
+     */
+    private function init_hooks() {
+        add_action('init', [$this, 'init']);
         
         // Add plugin action links
         add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_plugin_action_links']);
         if (is_multisite()) {
             add_filter('network_admin_plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_network_plugin_action_links']);
         }
-        
-        // Add multisite new site hook
+
+        // Multisite new site support
         if (is_multisite()) {
             add_action('wp_initialize_site', [$this, 'activate_new_site'], 900);
-            
-            // Add sync action for manual synchronization
-            add_action('wp_ajax_wpgraphql_sync_network_settings', [$this, 'ajax_sync_network_settings']);
         }
-        
-        // Hook to clear cache when options are updated
-        add_action('updated_option', [$this, 'on_option_updated'], 10, 3);
-        add_action('updated_site_option', [$this, 'on_site_option_updated'], 10, 3);
-        
-        // Hook into WPGraphQL if it exists
-        if (class_exists('WPGraphQL')) {
-            add_action('graphql_register_types', [$this, 'register_graphql_hooks']);
-        } else {
-            // Lazy load WPGraphQL hooks if plugin is activated later
-            add_action('plugins_loaded', [$this, 'maybe_register_graphql_hooks'], 20);
-        }
-        
-        // Hook into REST API
-        add_action('rest_api_init', [$this, 'register_rest_hooks']);
     }
     
     /**
-     * Plugin activation hook
+     * Plugin activation hook.
+     *
+     * @param bool $network_wide Whether activation is network-wide.
+     * @return void
      */
     public static function activate($network_wide = false) {
         $default_options = [
@@ -224,6 +287,7 @@ class WPGraphQL_Content_Filter {
             'custom_allowed_tags' => '',
             'apply_to_excerpt' => true,
             'apply_to_content' => true,
+            'apply_to_rest_api' => true,
             'remove_plugin_data_on_uninstall' => false,
         ];
         
@@ -237,7 +301,6 @@ class WPGraphQL_Content_Filter {
             add_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_defaults);
             
             // Initialize all existing sites with proper sync structure
-            $instance = self::getInstance();
             $sites = get_sites(['fields' => 'ids', 'number' => 500]); // Limit for performance
             
             foreach ($sites as $site_id) {
@@ -245,8 +308,7 @@ class WPGraphQL_Content_Filter {
                 
                 // Only initialize if options don't exist
                 if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
-                    // Initialize with synced network settings
-                    $instance->sync_network_settings_to_current_site($network_defaults);
+                    add_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $default_options);
                 }
                 
                 restore_current_blog();
@@ -254,14 +316,7 @@ class WPGraphQL_Content_Filter {
         } else {
             // Single site activation or individual site in multisite
             if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
-                if (is_multisite()) {
-                    // For individual site in multisite, sync with network settings
-                    $instance = self::getInstance();
-                    $instance->sync_network_settings_to_current_site();
-                } else {
-                    // Single site installation
-                    add_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $default_options);
-                }
+                add_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $default_options);
             }
         }
         
@@ -269,75 +324,24 @@ class WPGraphQL_Content_Filter {
         if (function_exists('wp_cache_flush')) {
             wp_cache_flush();
         }
-        
-        // Clear plugin cache if instance exists
-        $instance = self::getInstance();
-        $instance->clear_options_cache();
     }
     
     /**
-     * Plugin deactivation hook
+     * Plugin deactivation hook.
+     *
+     * @return void
      */
     public static function deactivate() {
         // Clear any existing caches
         if (function_exists('wp_cache_flush')) {
             wp_cache_flush();
         }
-        
-        // Clear plugin cache if instance exists
-        if (self::$instance !== null) {
-            self::$instance->clear_options_cache();
-        }
     }
-    
+
     /**
-     * Activate plugin for newly created multisite site
-     */
-    public function activate_new_site($site) {
-        if (!is_plugin_active_for_network(plugin_basename(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE))) {
-            return;
-        }
-        
-        switch_to_blog($site->blog_id);
-        
-        // Only add default options if they don't exist
-        if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
-            // Initialize with network settings synced
-            $this->sync_network_settings_to_current_site();
-        }
-        
-        restore_current_blog();
-    }
-    
-    /**
-     * Handle option updates to clear cache
-     */
-    public function on_option_updated($option_name, $old_value, $new_value) {
-        if ($option_name === 'wpgraphql_content_filter_options') {
-            $this->clear_current_site_cache();
-        }
-    }
-    
-    /**
-     * Handle site option updates to clear cache
-     */
-    public function on_site_option_updated($option_name, $old_value, $new_value) {
-        if ($option_name === WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS) {
-            $this->clear_options_cache(); // Clear all caches
-        }
-    }
-    
-    /**
-     * Maybe register GraphQL hooks if WPGraphQL is loaded later
-     */
-    public function maybe_register_graphql_hooks() {
-        if (class_exists('WPGraphQL')) {
-            add_action('graphql_register_types', [$this, 'register_graphql_hooks']);
-        }
-    }
-    
-    /**
-     * Plugin uninstall hook
+     * Plugin uninstall hook.
+     *
+     * @return void
      */
     public static function uninstall() {
         if (is_multisite()) {
@@ -360,107 +364,57 @@ class WPGraphQL_Content_Filter {
             wp_cache_flush();
         }
     }
-    
+
     /**
-     * Initialize plugin
+     * Initialize plugin.
+     *
+     * @return void
      */
     public function init() {
         load_plugin_textdomain('wpgraphql-content-filter', false, dirname(plugin_basename(__FILE__)) . '/languages');
-        
-        // Check for plugin upgrades
-        $this->check_plugin_upgrade();
-        
-        // Ensure network options are initialized
-        $this->maybe_initialize_network_options();
     }
-    
-    // ... [rest of the class methods would continue here - this is a truncated version to show the structure]
-    
+
     /**
-     * Get plugin options
+     * Activate plugin for newly created multisite site.
+     *
+     * @param WP_Site $site Site object.
+     * @return void
      */
-    public function get_options() {
-        return get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $this->get_default_options());
+    public function activate_new_site($site) {
+        if (!is_plugin_active_for_network(plugin_basename(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE))) {
+            return;
+        }
+        
+        switch_to_blog($site->blog_id);
+        
+        // Only add default options if they don't exist
+        if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
+            $default_options = [
+                'filter_mode' => 'none',
+                'preserve_line_breaks' => true,
+                'convert_headings' => true,
+                'convert_links' => true,
+                'convert_lists' => true,
+                'convert_emphasis' => true,
+                'custom_allowed_tags' => '',
+                'apply_to_excerpt' => true,
+                'apply_to_content' => true,
+                'apply_to_rest_api' => true,
+                'remove_plugin_data_on_uninstall' => false,
+            ];
+            
+            add_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, $default_options);
+        }
+        
+        restore_current_blog();
     }
-    
+
     /**
-     * Get default options
+     * Add plugin action links.
+     *
+     * @param array $links Existing plugin action links.
+     * @return array Modified plugin action links.
      */
-    private function get_default_options() {
-        return [
-            'filter_mode' => 'none',
-            'preserve_line_breaks' => true,
-            'convert_headings' => true,
-            'convert_links' => true,
-            'convert_lists' => true,
-            'convert_emphasis' => true,
-            'custom_allowed_tags' => '',
-            'apply_to_excerpt' => true,
-            'apply_to_content' => true,
-            'apply_to_rest_api' => true,
-            'remove_plugin_data_on_uninstall' => false,
-        ];
-    }
-    
-    // Simplified versions of critical methods for the working version
-    public function register_graphql_hooks() {
-        // Basic GraphQL hooks - simplified version
-    }
-    
-    public function register_rest_hooks() {
-        // Basic REST hooks - simplified version
-    }
-    
-    public function add_admin_menu() {
-        add_options_page(
-            __('WPGraphQL Content Filter', 'wpgraphql-content-filter'),
-            __('GraphQL Content Filter', 'wpgraphql-content-filter'),
-            'manage_options',
-            'wpgraphql-content-filter',
-            [$this, 'admin_page']
-        );
-    }
-    
-    public function admin_init() {
-        // Basic admin initialization
-        register_setting(
-            'wpgraphql_content_filter_group', 
-            WPGRAPHQL_CONTENT_FILTER_OPTIONS
-        );
-    }
-    
-    public function admin_page() {
-        ?>
-        <div class="wrap">
-            <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
-            <p><?php esc_html_e('WPGraphQL Content Filter is working. Admin interface temporarily simplified in v2.0.9 hotfix.', 'wpgraphql-content-filter'); ?></p>
-        </div>
-        <?php
-    }
-    
-    // Add minimal required methods to prevent fatal errors
-    public function clear_options_cache() {
-        $this->options_cache = [];
-        $this->network_options_cache = null;
-    }
-    
-    public function clear_current_site_cache() {
-        $site_id = is_multisite() ? get_current_blog_id() : 0;
-        unset($this->options_cache[$site_id]);
-    }
-    
-    public function check_plugin_upgrade() {
-        // Basic upgrade check
-    }
-    
-    public function maybe_initialize_network_options() {
-        // Basic network initialization
-    }
-    
-    public function sync_network_settings_to_current_site($network_options = null) {
-        // Basic sync functionality
-    }
-    
     public function add_plugin_action_links($links) {
         $settings_link = sprintf(
             '<a href="%s">%s</a>',
@@ -471,13 +425,68 @@ class WPGraphQL_Content_Filter {
         array_unshift($links, $settings_link);
         return $links;
     }
-    
-    // Stub methods for multisite (empty implementations to prevent errors)
-    public function add_network_admin_menu() {}
-    public function add_site_admin_menu() {}
-    public function save_network_options() {}
-    public function ajax_sync_network_settings() {}
-    public function add_network_plugin_action_links($links) { return $links; }
+
+    /**
+     * Add network plugin action links.
+     *
+     * @param array $links Existing network plugin action links.
+     * @return array Modified network plugin action links.
+     */
+    public function add_network_plugin_action_links($links) {
+        $settings_link = sprintf(
+            '<a href="%s">%s</a>',
+            esc_url(network_admin_url('settings.php?page=wpgraphql-content-filter-network')),
+            __('Network Settings', 'wpgraphql-content-filter')
+        );
+        
+        array_unshift($links, $settings_link);
+        return $links;
+    }
+
+    /**
+     * Get Options Manager instance.
+     *
+     * @return WPGraphQL_Content_Filter_Options_Manager
+     */
+    public function get_options_manager() {
+        return $this->options_manager;
+    }
+
+    /**
+     * Get Content Filter instance.
+     *
+     * @return WPGraphQL_Content_Filter_Content_Filter
+     */
+    public function get_content_filter() {
+        return $this->content_filter;
+    }
+
+    /**
+     * Get GraphQL Hook Manager instance.
+     *
+     * @return WPGraphQL_Content_Filter_GraphQL_Hook_Manager
+     */
+    public function get_graphql_hook_manager() {
+        return $this->graphql_hook_manager;
+    }
+
+    /**
+     * Get REST Hook Manager instance.
+     *
+     * @return WPGraphQL_Content_Filter_REST_Hook_Manager
+     */
+    public function get_rest_hook_manager() {
+        return $this->rest_hook_manager;
+    }
+
+    /**
+     * Get Admin Manager instance.
+     *
+     * @return WPGraphQL_Content_Filter_Admin|null
+     */
+    public function get_admin_manager() {
+        return $this->admin_manager;
+    }
 }
 
 // Register activation/deactivation hooks
