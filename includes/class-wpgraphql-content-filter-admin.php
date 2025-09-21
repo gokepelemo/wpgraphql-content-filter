@@ -218,7 +218,7 @@ class WPGraphQL_Content_Filter_Admin {
             'general_settings',
             [
                 'field' => 'apply_to_content',
-                'label' => 'Filter the main content field',
+                'description' => 'Filter the main content field',
                 'default' => true
             ]
         );
@@ -232,7 +232,7 @@ class WPGraphQL_Content_Filter_Admin {
             'general_settings',
             [
                 'field' => 'apply_to_excerpt',
-                'label' => 'Filter the excerpt field',
+                'description' => 'Filter the excerpt field',
                 'default' => true
             ]
         );
@@ -378,36 +378,22 @@ class WPGraphQL_Content_Filter_Admin {
      */
     public function render_checkbox_field($args) {
         $field = $args['field'];
-        $label = $args['label'];
         $description = isset($args['description']) ? $args['description'] : '';
         $default = isset($args['default']) ? $args['default'] : false;
-        $conditional = isset($args['conditional']) ? $args['conditional'] : null;
-        
+
         $options = $this->get_effective_options();
         $value = isset($options[$field]) ? $options[$field] : $default;
         $readonly = $this->are_network_settings_enforced();
-        
-        $row_class = '';
-        $conditional_attr = '';
-        if ($conditional) {
-            $row_class = ' class="conditional-field" data-condition-field="' . esc_attr($conditional['field']) . '" data-condition-value="' . esc_attr($conditional['value']) . '"';
-            $conditional_attr = ' style="display: none;"';
-        }
-        
-        echo '<tr' . $row_class . $conditional_attr . '>';
-        echo '<td>';
+
         echo '<input type="checkbox" id="' . esc_attr($field) . '" name="wpgraphql_content_filter_options[' . esc_attr($field) . ']" value="1"' . checked($value, 1, false) . ($readonly ? ' disabled' : '') . '/>';
-        echo '<label for="' . esc_attr($field) . '"> ' . esc_html($label) . '</label>';
-        
+
         if ($readonly) {
             echo '<input type="hidden" name="wpgraphql_content_filter_options[' . esc_attr($field) . ']" value="' . esc_attr($value) . '"/>';
         }
-        
+
         if ($description) {
             echo '<p class="description">' . esc_html($description) . '</p>';
         }
-        echo '</td>';
-        echo '</tr>';
     }
 
     /**
@@ -419,25 +405,40 @@ class WPGraphQL_Content_Filter_Admin {
         $description = isset($args['description']) ? $args['description'] : '';
         $default = isset($args['default']) ? $args['default'] : false;
         $conditional = $args['conditional'];
-        
+
         $options = $this->get_effective_options();
         $value = isset($options[$field]) ? $options[$field] : $default;
         $readonly = $this->are_network_settings_enforced();
-        
+
         // Check if conditional field is set to show this field
         $condition_value = isset($options[$conditional['field']]) ? $options[$conditional['field']] : '';
         $show = ($condition_value === $conditional['value']);
-        
-        // Add the markdown-option class to the parent row via JavaScript
-        echo '<script>jQuery(document).ready(function($) { $(\'#' . esc_js($field) . '\').closest(\'tr\').addClass(\'markdown-option\').css(\'display\', \'' . ($show ? 'table-row' : 'none') . '\'); });</script>';
-        
+
+        // Add JavaScript to handle conditional display
+        echo '<script>jQuery(document).ready(function($) {
+            var field = $("#' . esc_js($field) . '").closest("tr");
+            field.addClass("markdown-option");
+
+            function toggleField() {
+                var filterMode = $("#filter_mode").val();
+                if (filterMode === "convert_to_markdown") {
+                    field.show();
+                } else {
+                    field.hide();
+                }
+            }
+
+            toggleField();
+            $("#filter_mode").on("change", toggleField);
+        });</script>';
+
         echo '<input type="checkbox" id="' . esc_attr($field) . '" name="wpgraphql_content_filter_options[' . esc_attr($field) . ']" value="1"' . checked($value, 1, false) . ($readonly ? ' disabled' : '') . '/>';
         echo '<label for="' . esc_attr($field) . '"> ' . esc_html($label) . '</label>';
-        
+
         if ($readonly) {
             echo '<input type="hidden" name="wpgraphql_content_filter_options[' . esc_attr($field) . ']" value="' . esc_attr($value) . '"/>';
         }
-        
+
         if ($description) {
             echo '<p class="description">' . esc_html($description) . '</p>';
         }
