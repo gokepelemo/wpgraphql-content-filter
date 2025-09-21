@@ -4,7 +4,7 @@ A WordPress plugin that cleans and filters HTML content in both WPGraphQL and RE
 
 This plugin is particularly valuable in two scenarios: when migrating from a traditional themed WordPress site to a headless architecture, and when a themed WordPress site needs to serve clean content to external applications via API. In both cases, existing content may contain unwanted HTML markup that needs to be filtered or sanitized before being consumed by other systems.
 
-**Version 2.1.0** features a completely refactored modular architecture with clean separation of concerns, dependency injection, and improved maintainability while preserving all existing functionality.
+**Version 2.1.1** features a completely refactored modular architecture with clean separation of concerns, dependency injection, and improved maintainability while preserving all existing functionality. New in 2.1.1: granular post type selection allows users to choose exactly which content types get filtered.
 
 The plugin was developed using Claude 4 Sonnet.
 

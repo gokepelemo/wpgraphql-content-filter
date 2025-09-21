@@ -65,8 +65,14 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
     
     /**
      * Initialize REST API hooks.
+     *
+     * @param WPGraphQL_Content_Filter_Options_Manager $options_manager Options manager instance.
+     * @param WPGraphQL_Content_Filter_Content_Filter $content_filter Content filter instance.
      */
-    public function init() {
+    public function init($options_manager, $content_filter) {
+        $this->options_manager = $options_manager;
+        $this->content_filter = $content_filter;
+
         add_action('rest_api_init', [$this, 'register_rest_hooks']);
     }
     
@@ -115,22 +121,31 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
      * @return WP_REST_Response
      */
     public function filter_rest_response($response, $post, $request) {
-        // Filter content field if present
-        if (isset($response->data['content']['rendered'])) {
+        // Check if filtering is enabled for this post type
+        if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+            return $response;
+        }
+
+        $options = $this->options_manager->get_options();
+
+        // Filter content field if present and enabled
+        if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
             $response->data['content']['rendered'] = $this->content_filter->filter_field_content(
-                $response->data['content']['rendered'], 
-                'content'
+                $response->data['content']['rendered'],
+                'content',
+                $options
             );
         }
-        
-        // Filter excerpt field if present
-        if (isset($response->data['excerpt']['rendered'])) {
+
+        // Filter excerpt field if present and enabled
+        if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
             $response->data['excerpt']['rendered'] = $this->content_filter->filter_field_content(
-                $response->data['excerpt']['rendered'], 
-                'excerpt'
+                $response->data['excerpt']['rendered'],
+                'excerpt',
+                $options
             );
         }
-        
+
         return $response;
     }
 }

@@ -218,7 +218,6 @@ class WPGraphQL_Content_Filter {
         $includes_dir = plugin_dir_path(__FILE__) . 'includes/';
 
         require_once $includes_dir . 'interface-wpgraphql-content-filter-hook-manager.php';
-        require_once $includes_dir . 'class-wpgraphql-content-filter-core.php';
         require_once $includes_dir . 'class-wpgraphql-content-filter-options-manager.php';
         require_once $includes_dir . 'class-wpgraphql-content-filter-content-filter.php';
         require_once $includes_dir . 'class-wpgraphql-content-filter-graphql-hook-manager.php';

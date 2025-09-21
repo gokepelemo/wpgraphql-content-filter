@@ -28,7 +28,14 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      * @var WPGraphQL_Content_Filter_Content_Filter
      */
     private $content_filter;
-    
+
+    /**
+     * Options manager instance.
+     *
+     * @var WPGraphQL_Content_Filter_Options_Manager
+     */
+    private $options_manager;
+
     /**
      * Singleton instance.
      *
@@ -53,17 +60,24 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      */
     private function __construct() {
         $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
+        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
     }
-    
+
     /**
      * Initialize GraphQL hooks.
+     *
+     * @param WPGraphQL_Content_Filter_Options_Manager $options_manager Options manager instance.
+     * @param WPGraphQL_Content_Filter_Content_Filter $content_filter Content filter instance.
      */
-    public function init() {
+    public function init($options_manager, $content_filter) {
+        $this->options_manager = $options_manager;
+        $this->content_filter = $content_filter;
+
         // Only register hooks if WPGraphQL is available
         if (!class_exists('WPGraphQL')) {
             return;
         }
-        
+
         add_action('graphql_register_types', [$this, 'register_graphql_hooks']);
     }
     
@@ -111,10 +125,23 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      * @return mixed
      */
     public function filter_graphql_content_field($value, $source, $args, $context) {
-        if (is_string($value)) {
-            return $this->content_filter->filter_field_content($value, 'content');
+        if (!is_string($value)) {
+            return $value;
         }
-        return $value;
+
+        // Check if filtering is enabled for this post type
+        if (isset($source->post_type) && !$this->options_manager->is_post_type_enabled($source->post_type)) {
+            return $value;
+        }
+
+        $options = $this->options_manager->get_options();
+
+        // Only filter if content filtering is enabled
+        if (empty($options['apply_to_content'])) {
+            return $value;
+        }
+
+        return $this->content_filter->filter_field_content($value, 'content', $options);
     }
     
     /**
@@ -127,10 +154,23 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      * @return mixed
      */
     public function filter_graphql_excerpt_field($value, $source, $args, $context) {
-        if (is_string($value)) {
-            return $this->content_filter->filter_field_content($value, 'excerpt');
+        if (!is_string($value)) {
+            return $value;
         }
-        return $value;
+
+        // Check if filtering is enabled for this post type
+        if (isset($source->post_type) && !$this->options_manager->is_post_type_enabled($source->post_type)) {
+            return $value;
+        }
+
+        $options = $this->options_manager->get_options();
+
+        // Only filter if excerpt filtering is enabled
+        if (empty($options['apply_to_excerpt'])) {
+            return $value;
+        }
+
+        return $this->content_filter->filter_field_content($value, 'excerpt', $options);
     }
     
     /**
@@ -152,25 +192,30 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
         if (!in_array($field_key, ['content', 'excerpt'])) {
             return $result;
         }
-        
+
         // Check if this is a post object
         if (!isset($source->post_type) || !is_object($source)) {
             return $result;
         }
-        
-        // Get post type and check if it's in our allowed types
-        $post_type = $source->post_type;
-        $allowed_post_types = $this->get_graphql_post_types();
-        
-        if (!in_array($post_type, $allowed_post_types)) {
+
+        // Check if filtering is enabled for this post type
+        if (!$this->options_manager->is_post_type_enabled($source->post_type)) {
             return $result;
         }
-        
+
+        $options = $this->options_manager->get_options();
+
+        // Check if the specific field type is enabled
+        if (($field_key === 'content' && empty($options['apply_to_content'])) ||
+            ($field_key === 'excerpt' && empty($options['apply_to_excerpt']))) {
+            return $result;
+        }
+
         // Apply filtering to the field content
         if (is_string($result)) {
-            return $this->content_filter->filter_field_content($result, $field_key);
+            return $this->content_filter->filter_field_content($result, $field_key, $options);
         }
-        
+
         return $result;
     }
     
@@ -183,9 +228,25 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      * @return mixed
      */
     public function filter_content($content, $post, $context) {
-        return $this->content_filter->filter_field_content($content, 'content');
+        if (!is_string($content) || !is_object($post)) {
+            return $content;
+        }
+
+        // Check if filtering is enabled for this post type
+        if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+            return $content;
+        }
+
+        $options = $this->options_manager->get_options();
+
+        // Only filter if content filtering is enabled
+        if (empty($options['apply_to_content'])) {
+            return $content;
+        }
+
+        return $this->content_filter->filter_field_content($content, 'content', $options);
     }
-    
+
     /**
      * GraphQL excerpt field filter.
      *
@@ -195,6 +256,22 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      * @return mixed
      */
     public function filter_excerpt($excerpt, $post, $context) {
-        return $this->content_filter->filter_field_content($excerpt, 'excerpt');
+        if (!is_string($excerpt) || !is_object($post)) {
+            return $excerpt;
+        }
+
+        // Check if filtering is enabled for this post type
+        if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+            return $excerpt;
+        }
+
+        $options = $this->options_manager->get_options();
+
+        // Only filter if excerpt filtering is enabled
+        if (empty($options['apply_to_excerpt'])) {
+            return $excerpt;
+        }
+
+        return $this->content_filter->filter_field_content($excerpt, 'excerpt', $options);
     }
 }

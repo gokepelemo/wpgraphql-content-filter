@@ -60,28 +60,29 @@ class WPGraphQL_Content_Filter_Content_Filter {
      *
      * @param string $content The content to filter.
      * @param string $field_type The field type ('content' or 'excerpt').
+     * @param array|null $options_override Optional options to override defaults.
      * @return string
      */
-    public function filter_field_content($content, $field_type = 'content') {
+    public function filter_field_content($content, $field_type = 'content', $options_override = null) {
         // Early return for empty content
         if (empty($content) || !is_string($content)) {
             return $content;
         }
-        
-        // Get cached options for better performance
-        $options = $this->options_manager->get_options();
-        
+
+        // Get cached options for better performance, or use override
+        $options = $options_override !== null ? $options_override : $this->options_manager->get_options();
+
         // Early return if filtering is disabled
         if ($options['filter_mode'] === 'none') {
             return $content;
         }
-        
+
         // Check if filtering is enabled for this field type
         $field_setting = ($field_type === 'content') ? 'apply_to_content' : 'apply_to_excerpt';
         if (empty($options[$field_setting])) {
             return $content;
         }
-        
+
         try {
             return $this->apply_filter($content, $options);
         } catch (Exception $e) {

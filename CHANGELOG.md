@@ -5,6 +5,58 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2025-09-21
+
+### Added
+
+- **Post Type Selection**: Users can now select which post types have content filtering applied
+- **Admin Interface Enhancements**: Added checkboxes for all public post types in settings
+- **Granular Control**: Filter can be enabled/disabled per post type (posts, pages, custom post types)
+
+### Fixed
+
+- **Fatal Error Resolution**: Fixed multisite activation fatal error by adding missing Core class include
+- **Missing Interface**: Added WPGraphQL_Content_Filter_Hook_Manager_Interface to resolve class dependencies
+- **Admin Layout**: Fixed admin form layout for consistent field styling across all options
+- **UI Improvements**: Markdown conversion options now use proper two-column table layout
+
+### Changed
+
+- **Settings Organization**: Moved "Filter Mode" to be the first setting on the admin page for better UX
+- **Default Behavior**: Post type filtering defaults to posts and pages for backward compatibility
+- **Performance**: Zero processing overhead for disabled post types
+- **Release Format**: Updated release packages to use WordPress standard naming (wpgraphql-content-filter-{version}.zip)
+
+### Technical
+
+- **Modular Architecture**: Completed architecture refactor with proper interfaces and dependency injection
+- **Enhanced Error Handling**: Improved error handling and graceful fallbacks throughout codebase
+- **Memory Monitoring**: Enhanced memory usage monitoring in GraphQL hooks
+- **Code Quality**: Comprehensive PHPDoc documentation and WordPress coding standards compliance
+
+## [2.1.0] - 2025-09-21
+
+### Major Refactor
+
+- **Complete Modular Architecture**: Major refactor to modular, maintainable codebase
+- **Performance Optimizations**: Enhanced memory management and processing efficiency
+- **Interface Implementation**: Added proper hook manager interfaces for better code organization
+- **Enhanced Documentation**: Comprehensive code documentation and inline comments
+
+### Enhanced
+
+- **Multisite Support**: Improved multisite compatibility and network settings management
+- **Admin Interface**: Better form layouts and conditional field display
+- **Error Handling**: Robust error handling with debug logging capabilities
+- **Release Process**: Enhanced automated release process with better validation
+
+### Technical
+
+- **Code Organization**: Separated concerns with proper class structure and inheritance
+- **Memory Management**: Implemented memory usage monitoring and protection mechanisms
+- **Hook Management**: Improved GraphQL and REST API hook registration system
+- **Build Process**: Enhanced production build validation and self-contained packages
+
 ## [2.0.8] - 2025-01-17
 
 ### Changed
