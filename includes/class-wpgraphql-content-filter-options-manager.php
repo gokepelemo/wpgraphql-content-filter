@@ -81,6 +81,7 @@ class WPGraphQL_Content_Filter_Options_Manager {
             'apply_to_excerpt' => true,
             'apply_to_content' => true,
             'apply_to_rest_api' => true,
+            'enabled_post_types' => ['post', 'page'],
             'remove_plugin_data_on_uninstall' => false,
         ];
     }
@@ -444,5 +445,23 @@ class WPGraphQL_Content_Filter_Options_Manager {
         
         // Clear plugin cache
         $this->clear_options_cache();
+    }
+
+    /**
+     * Check if filtering is enabled for a specific post type.
+     *
+     * @param string $post_type The post type to check.
+     * @return bool True if filtering is enabled for the post type.
+     */
+    public function is_post_type_enabled($post_type) {
+        $options = $this->get_options();
+        $enabled_post_types = isset($options['enabled_post_types']) ? $options['enabled_post_types'] : ['post', 'page'];
+
+        // Ensure enabled_post_types is an array
+        if (!is_array($enabled_post_types)) {
+            $enabled_post_types = ['post', 'page'];
+        }
+
+        return in_array($post_type, $enabled_post_types);
     }
 }

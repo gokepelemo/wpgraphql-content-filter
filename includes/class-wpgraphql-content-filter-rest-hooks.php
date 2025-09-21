@@ -340,6 +340,13 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
             return '';
         }
 
+        // Check if filtering is enabled for this post type
+        $options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        $post_type = isset($post['type']) ? $post['type'] : 'post';
+        if (!$options_manager->is_post_type_enabled($post_type)) {
+            return $post['content']['rendered'];
+        }
+
         $options = WPGraphQL_Content_Filter_Options::get_effective_options();
         $content = $post['content']['rendered'];
 
@@ -381,9 +388,16 @@ class WPGraphQL_Content_Filter_REST_Hooks implements WPGraphQL_Content_Filter_Ho
      */
     public function get_filtered_excerpt_callback($post, $field, $request) {
         $excerpt = $post['excerpt']['rendered'] ?? '';
-        
+
         if (empty($excerpt)) {
             return '';
+        }
+
+        // Check if filtering is enabled for this post type
+        $options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        $post_type = isset($post['type']) ? $post['type'] : 'post';
+        if (!$options_manager->is_post_type_enabled($post_type)) {
+            return $excerpt;
         }
 
         $options = WPGraphQL_Content_Filter_Options::get_effective_options();

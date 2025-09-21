@@ -528,7 +528,14 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             error_log('WPGraphQL Content Filter: Too many resolve calls (' . $processing_count . '), potential infinite loop');
             return $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
         }
-        
+
+        // Check if filtering is enabled for this post type
+        $options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        if (!$options_manager->is_post_type_enabled($post->post_type)) {
+            $processing_count--;
+            return $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
+        }
+
         $options = WPGraphQL_Content_Filter_Options::get_effective_options();
         $content = $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
 
@@ -572,7 +579,14 @@ class WPGraphQL_Content_Filter_GraphQL_Hooks implements WPGraphQL_Content_Filter
             error_log('WPGraphQL Content Filter: Too many resolve_with_options calls (' . $processing_count . '), potential infinite loop');
             return $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
         }
-        
+
+        // Check if filtering is enabled for this post type
+        $options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        if (!$options_manager->is_post_type_enabled($post->post_type)) {
+            $processing_count--;
+            return $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
+        }
+
         $default_options = WPGraphQL_Content_Filter_Options::get_effective_options();
         $content = $field === 'excerpt' ? $post->post_excerpt : $post->post_content;
 

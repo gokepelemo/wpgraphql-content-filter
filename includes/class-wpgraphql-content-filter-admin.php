@@ -327,6 +327,20 @@ class WPGraphQL_Content_Filter_Admin {
             ]
         );
 
+        // Post Type Selection
+        add_settings_field(
+            'enabled_post_types',
+            'Apply to Post Types',
+            [$this, 'render_post_type_checkboxes'],
+            'wpgraphql-content-filter',
+            'general_settings',
+            [
+                'field' => 'enabled_post_types',
+                'description' => 'Select which post types should have content filtering applied',
+                'default' => ['post', 'page']
+            ]
+        );
+
         // Cache Settings
         add_settings_field(
             'enable_cache',
@@ -498,6 +512,52 @@ class WPGraphQL_Content_Filter_Admin {
         
         if ($label) {
             echo '<p class="description">' . esc_html($label) . '</p>';
+        }
+    }
+
+    /**
+     * Render post type checkboxes field.
+     */
+    public function render_post_type_checkboxes($args) {
+        $field = $args['field'];
+        $description = isset($args['description']) ? $args['description'] : '';
+        $default = isset($args['default']) ? $args['default'] : ['post', 'page'];
+
+        $options = $this->get_effective_options();
+        $value = isset($options[$field]) ? $options[$field] : $default;
+        $readonly = $this->are_network_settings_enforced();
+
+        // Ensure value is an array
+        if (!is_array($value)) {
+            $value = $default;
+        }
+
+        // Get available post types
+        $post_types = get_post_types(['public' => true], 'objects');
+
+        echo '<div class="post-type-checkboxes">';
+
+        foreach ($post_types as $post_type_name => $post_type_obj) {
+            $checked = in_array($post_type_name, $value);
+            $input_id = $field . '_' . $post_type_name;
+
+            echo '<label for="' . esc_attr($input_id) . '" style="display: block; margin-bottom: 5px;">';
+            echo '<input type="checkbox" id="' . esc_attr($input_id) . '" name="wpgraphql_content_filter_options[' . esc_attr($field) . '][]" value="' . esc_attr($post_type_name) . '"' . checked($checked, true, false) . ($readonly ? ' disabled' : '') . '/>';
+            echo ' ' . esc_html($post_type_obj->labels->name) . ' (' . esc_html($post_type_name) . ')';
+            echo '</label>';
+        }
+
+        echo '</div>';
+
+        if ($readonly) {
+            // Add hidden inputs to preserve values when readonly
+            foreach ($value as $post_type) {
+                echo '<input type="hidden" name="wpgraphql_content_filter_options[' . esc_attr($field) . '][]" value="' . esc_attr($post_type) . '"/>';
+            }
+        }
+
+        if ($description) {
+            echo '<p class="description">' . esc_html($description) . '</p>';
         }
     }
 
