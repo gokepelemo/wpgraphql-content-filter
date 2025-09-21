@@ -1,6 +1,6 @@
 # WPGraphQL Content Filter Plugin
 
-A WordPress plugin that cleans and filters HTML content in both WPGraphQL and REST API responses according to customizable settings. The plugin supports WordPress multisite installations, allowing network administrators to set default filtering rules that individual site administrators can then customize for their specific needs.
+A WordPress plugin that cleans and filters HTML content in both WPGraphQL and REST API responses according to customizable settings. The plugin features a modern, responsive admin interface with intelligent conditional UI that adapts based on your filtering preferences. It includes comprehensive WordPress multisite support, allowing network administrators to set default filtering rules with complete settings parity and enforcement controls that individual site administrators can customize for their specific needs.
 
 This plugin is particularly valuable in two scenarios: when migrating from a traditional themed WordPress site to a headless architecture, and when a themed WordPress site needs to serve clean content to external applications via API. In both cases, existing content may contain unwanted HTML markup that needs to be filtered or sanitized before being consumed by other systems.
 
@@ -14,11 +14,22 @@ The plugin was developed using Claude 4 Sonnet.
   - Convert to Markdown
   - Custom Allowed Tags
 
+- **Intelligent Conditional UI:**
+  - Markdown options dynamically shown/hidden based on selected filter mode
+  - Clean, responsive admin interface with professional styling
+  - Real-time form field visibility updates
+
 - **Configurable Options:**
   - Apply filtering to content and/or excerpt fields
   - Preserve line breaks when stripping HTML
   - Selective Markdown conversion (headings, links, lists, emphasis)
   - Custom allowed HTML tags
+
+- **Advanced Multisite Support:**
+  - Complete network-level administration with enforcement controls
+  - All site-level settings available at network level
+  - Bulk settings synchronization across all sites
+  - Override protection and inheritance system
 
 - **API Integration:**
   - Automatically works with all post types registered with WPGraphQL
@@ -26,6 +37,12 @@ The plugin was developed using Claude 4 Sonnet.
   - Filters the main `content` field in place
   - Filters the `excerpt` field (optional)
   - Supports custom post types out of the box
+
+- **Performance Optimizations:**
+  - Built-in caching system for improved performance
+  - Memory usage optimization and batch processing
+  - Configurable cache TTL and batch sizes
+  - Resolved PHP memory exhaustion issues
 
 ## Installation
 
@@ -63,9 +80,27 @@ The plugin was developed using Claude 4 Sonnet.
 Navigate to **Settings > GraphQL Content Filter** in your WordPress admin to configure:
 
 1. **Filter Mode**: Choose how to process content
-2. **Apply to Fields**: Select which fields to filter
-3. **Markdown Options**: Configure Markdown conversion (when applicable)
+   - When "Convert to Markdown" is selected, additional Markdown-specific options will appear
+   - Other modes hide Markdown options for a cleaner interface
+2. **Apply to Fields**: Select which fields to filter (content, excerpt)
+3. **Markdown Options**: Configure Markdown conversion (automatically shown/hidden based on filter mode)
+   - Preserve Line Breaks
+   - Convert Headings to Markdown
+   - Convert Links to Markdown  
+   - Convert Lists to Markdown
+   - Convert Emphasis to Markdown
 4. **Custom Tags**: Define allowed HTML tags (for custom mode)
+
+#### Multisite Network Administration
+
+For multisite installations, network administrators can access **Network Admin > Settings > GraphQL Content Filter** to:
+
+- Set network-wide default settings for all sites
+- Enable enforcement to prevent individual sites from overriding settings
+- Configure all the same options available at the site level
+- Bulk synchronize settings across all sites in the network
+
+The network admin interface includes the same conditional UI behavior, ensuring a consistent experience across both site-level and network-level administration.
 
 ### Performance Settings
 
@@ -269,6 +304,37 @@ add_filter('wpgraphql_content_filter_options', function($options) {
 - `wpgraphql_content_filter_settings_saved` - Fired when settings are saved
 
 ## Changelog
+
+### 2.0.8 - 2025-09-20
+
+**Major Admin Interface Overhaul & Conditional UI**
+
+- **Added:**
+  - Conditional Markdown Options: Markdown-related settings (preserve_line_breaks, convert_headings, convert_links, convert_lists, convert_emphasis) now only appear when "Convert to Markdown" filter mode is selected
+  - Real-time UI Updates: JavaScript-powered dynamic form field visibility that updates instantly when filter mode changes
+  - Complete Network Settings Parity: All site-level settings are now available at the network level for comprehensive multisite management
+  - Responsive Admin Layout: Modern CSS Grid/Flexbox design with optimal field sizing and professional appearance
+  - Enhanced Typography: Improved form label sizing (15px) and better visual alignment throughout the interface
+
+- **Enhanced:**
+  - Admin Interface: Complete responsive redesign with proper width controls, better spacing, and professional styling
+  - Memory Management: Resolved PHP memory exhaustion issues through systematic optimization and conditional loading
+  - Release Process: Updated release.sh script to create "v2.0.x.zip" packages instead of full plugin name for cleaner distribution
+  - Menu Naming: Changed admin menu from "Content Filter" to "GraphQL Content Filter" for better clarity
+  - User Experience: Cleaner interface with contextual option display and improved visual hierarchy
+
+- **Technical:**
+  - CSS Framework: Implemented comprehensive responsive stylesheet with breakpoint support for desktop, tablet, and mobile
+  - JavaScript Integration: Added dynamic form field management with proper event handling and state management
+  - Settings Architecture: Enhanced WordPress Settings API integration with conditional field callbacks
+  - Performance: Optimized hook registration and module initialization for better resource usage
+  - Code Quality: Improved separation of concerns between admin, core, and hook classes
+
+- **Fixed:**
+  - Form Layout Issues: Resolved excessive field stretching and improved proportional layout (25% labels, 75% fields)
+  - Memory Exhaustion: Completely resolved PHP memory limit issues that were affecting plugin functionality
+  - Conditional Display: Fixed WordPress Settings API integration to properly show/hide entire form rows (labels + fields)
+  - Cross-platform Compatibility: Enhanced compatibility across different WordPress environments and multisite configurations
 
 ### 1.0.9 - 2025-08-30
 
