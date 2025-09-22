@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.10] - 2025-09-21
+
+### Fixed
+
+- **Plugin Activation**: Resolved fatal errors during plugin activation in WordPress
+- **WordPress Function Guards**: Added proper guards for WordPress function calls to prevent errors when loading outside WordPress context
+- **Constant Definition Timing**: Fixed timing issues with `plugin_dir_path()` and `plugin_dir_url()` function calls by deferring constant definition
+- **Class Loading**: Enhanced content filter and main plugin classes to handle missing constants gracefully with fallback logic
+- **Hook Registration**: Properly guarded `register_activation_hook`, `register_deactivation_hook`, and `register_uninstall_hook` calls
+
+### Technical
+
+- **Initialization Order**: Ensured constants are defined before plugin classes are instantiated
+- **Fallback Logic**: Added safe constant access with dynamic path calculation fallbacks
+- **Error Prevention**: Plugin now loads safely in any context without fatal errors
+
 ## [2.1.8] - 2025-09-21
 
 ### Enhanced
