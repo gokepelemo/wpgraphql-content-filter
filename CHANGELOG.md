@@ -9,22 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Enhanced
 
-- **HTMLPurifier Integration**: Added `ezyang/htmlpurifier` for robust HTML cleaning and tag stripping
-- **Improved HTML Sanitization**: HTMLPurifier provides superior HTML parsing and sanitization compared to regex patterns
-- **Security**: Enhanced security through HTMLPurifier's comprehensive XSS protection and malformed HTML handling
-- **Graceful Fallback**: Falls back to original methods if HTMLPurifier is unavailable
+- **Professional HTML Processing**: Integrated `league/html-to-markdown` v5.0 for robust HTML-to-Markdown conversion
+- **HTMLPurifier Integration**: Added `ezyang/htmlpurifier` v4.16 for comprehensive HTML sanitization and XSS protection
+- **Complete Attribute Handling**: Now properly captures all HTML tag attributes including id, classes, data-* attributes, and complex nested structures
+- **Security Improvements**: Enhanced XSS protection and malformed HTML handling through professional-grade libraries
+- **Graceful Fallbacks**: Falls back to regex-based methods when libraries are unavailable
+- **PHPUnit Testing**: Added comprehensive unit tests with simplified test architecture
 
 ### Fixed
 
-- **Complete HTML Tag Handling**: HTMLPurifier properly handles all HTML attributes and complex nested structures
-- **Malformed HTML Processing**: Better handling of malformed or incomplete HTML tags
-- **XSS Protection**: Enhanced protection against XSS attacks through HTMLPurifier's built-in security features
+- **HTML Tag Attribute Capturing**: Fixed issue where HTML tag attributes weren't being captured entirely during conversion
+- **Malformed HTML Processing**: Better handling of malformed or incomplete HTML tags through HTMLPurifier
+- **Unicode Content Handling**: Improved processing of Unicode characters and special content
+- **Content Processing**: Enhanced content processing to handle complex HTML structures with multiple attributes
 
 ### Technical
 
-- **Composer Dependency**: Added `ezyang/htmlpurifier` v4.16 for professional-grade HTML processing
-- **Performance**: Optimized processing with library-based HTML parsing vs regex fallback
-- **Configuration**: Configurable HTML element and attribute allowlists for custom filtering modes
+- **Composer Dependencies**: Added professional-grade libraries for HTML processing
+  - `league/html-to-markdown` ^5.0 for HTML-to-Markdown conversion
+  - `ezyang/htmlpurifier` ^4.16 for HTML sanitization
+- **Autoloader Management**: Implemented automatic Composer autoloader loading when available
+- **Performance**: Optimized conversion process with library-based parsing vs regex fallback
+- **Test Coverage**: Added PHPUnit test suite with bootstrap configuration and unit tests
+- **Architecture**: Enhanced modular architecture with professional library integration
 
 ## [2.1.7] - 2025-09-21
 

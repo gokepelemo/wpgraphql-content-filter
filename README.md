@@ -4,7 +4,7 @@ A WordPress plugin that cleans and filters HTML content in both WPGraphQL and RE
 
 This plugin is particularly valuable in two scenarios: when migrating from a traditional themed WordPress site to a headless architecture, and when a themed WordPress site needs to serve clean content to external applications via API. In both cases, existing content may contain unwanted HTML markup that needs to be filtered or sanitized before being consumed by other systems.
 
-**Version 2.1.1** features a completely refactored modular architecture with clean separation of concerns, dependency injection, and improved maintainability while preserving all existing functionality. New in 2.1.1: granular post type selection allows users to choose exactly which content types get filtered.
+**Version 2.1.8** features a completely refactored modular architecture with professional-grade HTML processing libraries. Integrated `league/html-to-markdown` for robust HTML-to-Markdown conversion and `ezyang/htmlpurifier` for comprehensive HTML sanitization with XSS protection. The plugin now handles all HTML tag attributes completely, including id, classes, data-* attributes, and other complex attributes.
 
 The plugin was developed using Claude 4 Sonnet.
 
@@ -12,9 +12,9 @@ The plugin was developed using Claude 4 Sonnet.
 
 - **Multiple Filter Modes:**
   - None (no filtering)
-  - Strip All HTML (convert to plain text)
-  - Convert to Markdown
-  - Custom Allowed Tags
+  - Strip All HTML (using HTMLPurifier for comprehensive sanitization)
+  - Convert to Markdown (using league/html-to-markdown for professional conversion)
+  - Custom Allowed Tags (with HTMLPurifier-based filtering)
 
 - **Intelligent Conditional UI:**
   - Markdown options dynamically shown/hidden based on selected filter mode
@@ -43,8 +43,9 @@ The plugin was developed using Claude 4 Sonnet.
 - **Performance Optimizations:**
   - Built-in caching system for improved performance
   - Memory usage optimization and batch processing
-  - Configurable cache TTL and batch sizes
-  - Resolved PHP memory exhaustion issues
+  - Professional-grade libraries with optimized HTML parsing
+  - Graceful fallbacks to regex-based methods when libraries unavailable
+  - Enhanced security through HTMLPurifier's XSS protection
 
 ## Installation
 
@@ -72,8 +73,11 @@ The plugin was developed using Claude 4 Sonnet.
 - PHP 7.4+
 - **WPGraphQL plugin** (required for GraphQL filtering functionality)
 - Custom post types must be registered with WPGraphQL to be filtered in GraphQL (REST API works with all public post types)
+- **Composer dependencies** (automatically included in releases):
+  - `league/html-to-markdown` ^5.0 for professional HTML-to-Markdown conversion
+  - `ezyang/htmlpurifier` ^4.16 for comprehensive HTML sanitization and XSS protection
 
-**Note:** While the plugin can function without WPGraphQL for REST API filtering only, it is designed primarily for WPGraphQL integration and will display notices if WPGraphQL is not installed.
+**Note:** While the plugin can function without WPGraphQL for REST API filtering only, it is designed primarily for WPGraphQL integration and will display notices if WPGraphQL is not installed. The Composer dependencies are bundled with release packages, so no manual installation is required.
 
 ## Usage
 
@@ -183,36 +187,54 @@ GET /wp-json/wp/v2/products
 
 ### Strip All HTML
 
-Removes all HTML tags and returns plain text:
+Uses HTMLPurifier for comprehensive HTML sanitization and tag removal:
 
 ```html
-<p>Hello <strong>world</strong>!</p>
+<p class="content">Hello <strong data-id="123">world</strong>!</p>
 ↓
 Hello world!
 ```
 
+**Features:**
+- Complete HTML tag and attribute removal
+- XSS protection through HTMLPurifier
+- Malformed HTML handling
+- Unicode content preservation
+
 ### Convert to Markdown
 
-Converts HTML to Markdown syntax:
+Uses league/html-to-markdown for professional HTML-to-Markdown conversion:
 
 ```html
-<h2>Title</h2><p>Hello <strong>world</strong>!</p>
+<h2 id="title">Title</h2><p class="content">Hello <strong>world</strong>!</p>
 ↓
 ## Title
 
 Hello **world**!
 ```
 
+**Features:**
+- Complete HTML attribute handling (id, class, data-*, etc.)
+- Robust nested structure processing
+- Configurable conversion options
+- Fallback to regex patterns if library unavailable
+
 ### Custom Allowed Tags
 
-Only allows specified HTML tags:
+Uses HTMLPurifier for precise tag allowlisting with comprehensive attribute handling:
 
 ```html
 Settings: p,strong,em
-<p>Hello <strong>world</strong>! <script>alert('x')</script></p>
+<p class="content">Hello <strong data-weight="bold">world</strong>! <script>alert('x')</script></p>
 ↓
-<p>Hello <strong>world</strong>! alert('x')</p>
+<p class="content">Hello <strong data-weight="bold">world</strong>! alert('x')</p>
 ```
+
+**Features:**
+- Complete HTML attribute preservation for allowed tags
+- XSS protection against malicious content
+- Configurable attribute allowlists
+- Professional-grade HTML parsing
 
 ## Advanced Usage
 
