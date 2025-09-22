@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
  *
  * @since 2.1.0
  */
-class WPGraphQL_Content_Filter_REST_Hook_Manager {
+class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Filter_Hook_Manager_Interface {
     
     /**
      * Content filter instance.
@@ -59,8 +59,9 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
      * Private constructor.
      */
     private function __construct() {
-        $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
-        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        // Dependencies will be injected via init() method
+        $this->content_filter = null;
+        $this->options_manager = null;
     }
     
     /**
@@ -73,14 +74,53 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
+        // Register hooks immediately if this should load
+        if ($this->should_load()) {
+            $this->register_hooks();
+        }
+    }
+
+    /**
+     * Register hooks for REST API integration.
+     *
+     * @return void
+     */
+    public function register_hooks() {
         add_action('rest_api_init', [$this, 'register_rest_hooks']);
+    }
+
+    /**
+     * Unregister hooks for REST API integration.
+     *
+     * @return void
+     */
+    public function unregister_hooks() {
+        remove_action('rest_api_init', [$this, 'register_rest_hooks']);
+    }
+
+    /**
+     * Check if REST API hooks should be loaded.
+     *
+     * @return bool
+     */
+    public function should_load() {
+        // Always load REST API hooks since they're part of core WordPress
+        return true;
     }
     
     /**
      * Register REST API response hooks for all public post types.
      */
     public function register_rest_hooks() {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter: register_rest_hooks called');
+        }
+
         $post_types = $this->get_rest_post_types();
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter: Registering hooks for post types: ' . implode(', ', $post_types));
+        }
 
         foreach ($post_types as $post_type) {
             $this->add_rest_response_filter($post_type);
@@ -114,8 +154,16 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
      * @return WP_REST_Response
      */
     public function filter_rest_response($response, $post, $request) {
+        // Debug logging if WP_DEBUG is enabled
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter: filter_rest_response called for post ID: ' . ($post->ID ?? 'unknown'));
+        }
+
         // Early return if dependencies aren't properly initialized
         if (!$this->options_manager || !$this->content_filter) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Dependencies not initialized - options_manager: ' . ($this->options_manager ? 'yes' : 'no') . ', content_filter: ' . ($this->content_filter ? 'yes' : 'no'));
+            }
             return $response;
         }
 
@@ -127,13 +175,26 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager {
         try {
             $options = $this->options_manager->get_options();
 
+            // Debug logging for options
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Options - filter_mode: ' . ($options['filter_mode'] ?? 'none') .
+                         ', apply_to_rest_api: ' . ($options['apply_to_rest_api'] ?? 'no') .
+                         ', apply_to_content: ' . ($options['apply_to_content'] ?? 'no'));
+            }
+
             // Check if REST API filtering is enabled
             if (empty($options['apply_to_rest_api'])) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: REST API filtering disabled');
+                }
                 return $response;
             }
 
             // Check if filtering is enabled for this post type
             if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Post type ' . $post->post_type . ' not enabled for filtering');
+                }
                 return $response;
             }
         } catch (Exception $e) {
