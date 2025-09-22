@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 2.1.9
+ * Version: 2.1.10
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -33,16 +33,27 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.1.9');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.1.10');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
 }
-if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')) {
-    define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR', plugin_dir_path(__FILE__));
+
+/**
+ * Define WordPress-dependent constants when WordPress functions are available
+ */
+function wpgraphql_content_filter_define_constants() {
+    if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')) {
+        define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR', plugin_dir_path(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE));
+    }
+    if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_URL')) {
+        define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_URL', plugin_dir_url(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE));
+    }
 }
-if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_URL')) {
-    define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_URL', plugin_dir_url(__FILE__));
+
+// Define WordPress-dependent constants when WordPress is ready
+if (function_exists('add_action')) {
+    add_action('plugins_loaded', 'wpgraphql_content_filter_define_constants', 1);
 }
 
 // Define option names
@@ -139,7 +150,9 @@ function wpgraphql_content_filter_init() {
 }
 
 // Initialize on plugins_loaded to ensure all plugins are loaded
-add_action('plugins_loaded', 'wpgraphql_content_filter_init');
+if (function_exists('add_action')) {
+    add_action('plugins_loaded', 'wpgraphql_content_filter_init');
+}
 
 /**
  * Main plugin class - refactored to use modular architecture
@@ -215,7 +228,12 @@ class WPGraphQL_Content_Filter {
      * @return void
      */
     private function load_dependencies() {
-        $includes_dir = plugin_dir_path(__FILE__) . 'includes/';
+        // Get plugin directory - use constant if available, otherwise calculate it
+        $plugin_dir = defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')
+            ? WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR
+            : plugin_dir_path(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE);
+
+        $includes_dir = $plugin_dir . 'includes/';
 
         require_once $includes_dir . 'interface-wpgraphql-content-filter-hook-manager.php';
         require_once $includes_dir . 'class-wpgraphql-content-filter-options-manager.php';
@@ -491,6 +509,8 @@ class WPGraphQL_Content_Filter {
 }
 
 // Register activation/deactivation hooks
-register_activation_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'activate']);
-register_deactivation_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'deactivate']);
-register_uninstall_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'uninstall']);
+if (function_exists('register_activation_hook')) {
+    register_activation_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'activate']);
+    register_deactivation_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'deactivate']);
+    register_uninstall_hook(__FILE__, [WPGraphQL_Content_Filter::class, 'uninstall']);
+}

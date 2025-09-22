@@ -270,7 +270,12 @@ class WPGraphQL_Content_Filter_Content_Filter {
             return;
         }
 
-        $autoload_file = WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR . 'vendor/autoload.php';
+        // Get plugin directory - use constant if available, otherwise calculate it
+        $plugin_dir = defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')
+            ? WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR
+            : plugin_dir_path(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE);
+
+        $autoload_file = $plugin_dir . 'vendor/autoload.php';
 
         if (file_exists($autoload_file)) {
             require_once $autoload_file;
