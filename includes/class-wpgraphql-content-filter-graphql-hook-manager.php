@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
  *
  * @since 2.1.0
  */
-class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
+class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content_Filter_Hook_Manager_Interface {
     
     /**
      * Content filter instance.
@@ -59,8 +59,9 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
      * Private constructor.
      */
     private function __construct() {
-        $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
-        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        // Dependencies will be injected via init() method
+        $this->content_filter = null;
+        $this->options_manager = null;
     }
 
     /**
@@ -73,12 +74,38 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager {
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Only register hooks if WPGraphQL is available
-        if (!class_exists('WPGraphQL')) {
-            return;
+        // Register hooks if this should load
+        if ($this->should_load()) {
+            $this->register_hooks();
         }
+    }
 
+    /**
+     * Register hooks for GraphQL integration.
+     *
+     * @return void
+     */
+    public function register_hooks() {
         add_action('graphql_register_types', [$this, 'register_graphql_hooks']);
+    }
+
+    /**
+     * Unregister hooks for GraphQL integration.
+     *
+     * @return void
+     */
+    public function unregister_hooks() {
+        remove_action('graphql_register_types', [$this, 'register_graphql_hooks']);
+    }
+
+    /**
+     * Check if GraphQL hooks should be loaded.
+     *
+     * @return bool
+     */
+    public function should_load() {
+        // Only load if WPGraphQL is available
+        return class_exists('WPGraphQL');
     }
     
     /**
