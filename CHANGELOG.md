@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.11] - 2025-09-21
+
+### Fixed
+
+- **Orphaned HTML Attributes**: Added comprehensive cleanup of orphaned HTML attributes that could be left behind by fallback strip_tags methods
+- **Content Cleaning**: Enhanced all fallback HTML stripping methods to remove orphaned attributes like `href`, `class`, `id`, `data-*`, `aria-*`, etc.
+- **Regex-based Markdown**: Improved regex-based markdown conversion to clean up orphaned attributes
+- **Robust Fallback**: When HTMLPurifier is not available, fallback methods now provide complete HTML cleaning
+
+### Enhanced
+
+- **Attribute Pattern Matching**: Added intelligent pattern matching for common HTML attributes with and without values
+- **Data/Aria Attributes**: Special handling for `data-*` and `aria-*` attribute patterns
+- **Whitespace Cleanup**: Improved whitespace management after attribute removal
+
+### Technical
+
+- **New Method**: Added `clean_orphaned_attributes()` method for comprehensive attribute cleanup
+- **Fallback Improvement**: Enhanced all fallback methods to use orphaned attribute cleanup
+- **Pattern Coverage**: Covers quoted attributes, unquoted attributes, and boolean attributes
+
 ## [2.1.10] - 2025-09-21
 
 ### Fixed

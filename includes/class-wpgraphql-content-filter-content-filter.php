@@ -167,6 +167,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
                 $content = trim($content);
                 $content = preg_replace('/[ \t]+/', ' ', $content);
 
+                // HTMLPurifier should handle all HTML properly, no need for orphaned attribute cleanup
                 return $content;
             } catch (Exception $e) {
                 // Log error and fall back to wp_strip_all_tags
@@ -177,7 +178,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
             }
         }
 
-        // Fallback to original method
+        // Fallback to original method (includes orphaned attribute cleanup)
         return $this->strip_all_tags_fallback($content, $preserve_line_breaks);
     }
 
@@ -200,6 +201,9 @@ class WPGraphQL_Content_Filter_Content_Filter {
 
         // Strip all HTML tags
         $content = wp_strip_all_tags($content);
+
+        // Clean up any orphaned attributes that might be left behind
+        $content = $this->clean_orphaned_attributes($content);
 
         // Clean up whitespace
         $content = trim($content);
@@ -244,6 +248,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
                 $markdown = preg_replace('/\n{3,}/', "\n\n", $markdown);
                 $markdown = trim($markdown);
 
+                // league/html-to-markdown handles all HTML properly, no need for additional cleanup
                 return $markdown;
             } catch (Exception $e) {
                 // Log error and fall back to regex method
@@ -254,7 +259,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
             }
         }
 
-        // Fallback to regex-based conversion
+        // Fallback to regex-based conversion (includes orphaned attribute cleanup)
         return $this->convert_to_markdown_regex($content, $options);
     }
 
@@ -345,6 +350,9 @@ class WPGraphQL_Content_Filter_Content_Filter {
         // Strip remaining HTML tags
         $content = wp_strip_all_tags($content);
 
+        // Clean up any orphaned attributes that might be left behind
+        $content = $this->clean_orphaned_attributes($content);
+
         // Clean up extra whitespace
         $content = preg_replace('/\n{3,}/', "\n\n", $content);
         $content = trim($content);
@@ -396,6 +404,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
                 $config->set('AutoFormat.RemoveEmpty', true);
 
                 $purifier = new HTMLPurifier($config);
+                // HTMLPurifier handles all HTML properly, no need for additional cleanup
                 return $purifier->purify($content);
             } catch (Exception $e) {
                 // Log error and fall back to strip_tags
@@ -406,12 +415,12 @@ class WPGraphQL_Content_Filter_Content_Filter {
             }
         }
 
-        // Fallback to original method
+        // Fallback to original method (includes orphaned attribute cleanup)
         return $this->strip_custom_tags_fallback($content, $allowed_tags);
     }
 
     /**
-     * Strip tags except allowed ones using PHP strip_tags (fallback method).
+     * Strip tags except allowed ones using improved fallback method.
      *
      * @param string $content The content to process.
      * @param string $allowed_tags Comma-separated list of allowed tags.
@@ -419,13 +428,63 @@ class WPGraphQL_Content_Filter_Content_Filter {
      */
     private function strip_custom_tags_fallback($content, $allowed_tags) {
         if (empty($allowed_tags)) {
-            return wp_strip_all_tags($content);
+            return $this->strip_all_tags_fallback($content, true);
         }
 
         // Parse allowed tags
         $tags = array_map('trim', explode(',', $allowed_tags));
         $allowed = '<' . implode('><', $tags) . '>';
 
-        return strip_tags($content, $allowed);
+        // Use strip_tags but then clean up any orphaned attributes
+        $content = strip_tags($content, $allowed);
+
+        // Clean up orphaned attributes that strip_tags might leave behind
+        $content = $this->clean_orphaned_attributes($content);
+
+        return $content;
+    }
+
+    /**
+     * Clean up orphaned HTML attributes that may be left behind by strip_tags.
+     *
+     * @param string $content The content to clean.
+     * @return string
+     */
+    private function clean_orphaned_attributes($content) {
+        // Remove orphaned attributes that might be left behind
+        // Pattern explanation: looks for attribute-like patterns (word=value or word="value" or word='value')
+        // that are not within proper HTML tags
+
+        // Remove orphaned attribute patterns like: href="..." class="..." id="..." etc.
+        $content = preg_replace('/\s+\w+\s*=\s*["\'][^"\']*["\']/', '', $content);
+
+        // Remove orphaned attribute patterns without quotes like: href=value class=value
+        $content = preg_replace('/\s+\w+\s*=\s*[^\s<>"\']+/', '', $content);
+
+        // Remove orphaned boolean attributes (standalone words that look like HTML attributes)
+        $orphaned_attrs = [
+            'class', 'id', 'href', 'src', 'alt', 'title', 'target', 'rel', 'style', 'data-',
+            'width', 'height', 'role', 'aria-', 'type', 'name', 'value', 'placeholder',
+            'disabled', 'checked', 'selected', 'readonly', 'required', 'autofocus',
+            'multiple', 'hidden', 'defer', 'async', 'autoplay', 'controls', 'loop', 'muted'
+        ];
+
+        foreach ($orphaned_attrs as $attr) {
+            // Remove standalone attribute names that appear without context
+            if (strpos($attr, '-') !== false) {
+                // For attributes like data- or aria-, match the pattern
+                $pattern = '/\s+' . preg_quote(rtrim($attr, '-'), '/') . '-[\w-]*(?:\s*=\s*["\'][^"\']*["\']|\s*=\s*[^\s<>"\']+)?\s*/';
+            } else {
+                // For regular attributes
+                $pattern = '/\s+' . preg_quote($attr, '/') . '(?:\s*=\s*["\'][^"\']*["\']|\s*=\s*[^\s<>"\']+)?\s*/';
+            }
+            $content = preg_replace($pattern, ' ', $content);
+        }
+
+        // Clean up extra whitespace that might be left behind
+        $content = preg_replace('/\s+/', ' ', $content);
+        $content = trim($content);
+
+        return $content;
     }
 }
