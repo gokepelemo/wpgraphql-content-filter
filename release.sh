@@ -358,7 +358,16 @@ create_package() {
         print_warning "Composer not available - package will not include runtime dependencies"
     fi
     
-    # Remove existing package files
+    # Clean up old release files and backups
+    print_status "Cleaning up old release files..."
+
+    # Remove old plugin archives (keep current one if it exists)
+    find . -maxdepth 1 -name "${PLUGIN_NAME}-*.zip" ! -name "$package_zip" -delete 2>/dev/null || true
+
+    # Remove old backup directories (keep current one)
+    find . -maxdepth 1 -type d -name "backup-pre-release-*" ! -name "backup-pre-release-v${version}" -exec rm -rf {} + 2>/dev/null || true
+
+    # Remove build/dist/releases directories and current package
     rm -rf "$package_dir" "$package_zip" build/ dist/ releases/
     
     # Create package directory
