@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.8] - 2025-09-21
+
+### Enhanced
+
+- **HTMLPurifier Integration**: Added `ezyang/htmlpurifier` for robust HTML cleaning and tag stripping
+- **Improved HTML Sanitization**: HTMLPurifier provides superior HTML parsing and sanitization compared to regex patterns
+- **Security**: Enhanced security through HTMLPurifier's comprehensive XSS protection and malformed HTML handling
+- **Graceful Fallback**: Falls back to original methods if HTMLPurifier is unavailable
+
+### Fixed
+
+- **Complete HTML Tag Handling**: HTMLPurifier properly handles all HTML attributes and complex nested structures
+- **Malformed HTML Processing**: Better handling of malformed or incomplete HTML tags
+- **XSS Protection**: Enhanced protection against XSS attacks through HTMLPurifier's built-in security features
+
+### Technical
+
+- **Composer Dependency**: Added `ezyang/htmlpurifier` v4.16 for professional-grade HTML processing
+- **Performance**: Optimized processing with library-based HTML parsing vs regex fallback
+- **Configuration**: Configurable HTML element and attribute allowlists for custom filtering modes
+
+## [2.1.7] - 2025-09-21
+
+### Enhanced
+
+- **HTML to Markdown Conversion**: Integrated `league/html-to-markdown` package for robust HTML to Markdown conversion
+- **Complete Tag Attribute Handling**: Now properly captures all HTML tag attributes including id, classes, data-* attributes, and other attributes
+- **Graceful Fallback**: Falls back to regex-based conversion if the library is unavailable
+- **Improved Error Handling**: Enhanced error logging and graceful degradation for conversion failures
+
+### Fixed
+
+- **HTML Tag Attribute Capturing**: Fixed issue where HTML tag attributes weren't being captured entirely during conversion
+- **Content Processing**: Improved content processing to handle complex HTML structures with multiple attributes
+
+### Technical
+
+- **Composer Integration**: Added Composer dependency for `league/html-to-markdown` v5.0
+- **Autoloader Management**: Implemented automatic Composer autoloader loading when available
+- **Performance**: Optimized conversion process with library-based parsing vs regex fallback
+
 ## [2.1.1] - 2025-09-21
 
 ### Added
