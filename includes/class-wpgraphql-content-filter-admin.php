@@ -143,7 +143,7 @@ class WPGraphQL_Content_Filter_Admin {
      * @return void
      */
     public function register_settings() {
-        register_setting('wpgraphql_content_filter_options', WPGRAPHQL_CONTENT_FILTER_OPTIONS);
+        register_setting('wpgraphql_content_filter_options', WPGRAPHQL_CONTENT_FILTER_OPTIONS, [$this, 'sanitize_settings']);
         
         // General Settings Section
         add_settings_section(
@@ -385,6 +385,68 @@ class WPGraphQL_Content_Filter_Admin {
                 'max' => 1000
             ]
         );
+    }
+
+    /**
+     * Sanitize settings before saving.
+     *
+     * @param array $input Raw input values.
+     * @return array Sanitized values.
+     */
+    public function sanitize_settings($input) {
+        $sanitized = [];
+
+        // Get current options for defaults
+        $current_options = $this->options_manager->get_options();
+
+        // Sanitize filter_mode
+        $allowed_modes = ['strip_html', 'convert_to_markdown'];
+        $sanitized['filter_mode'] = isset($input['filter_mode']) && in_array($input['filter_mode'], $allowed_modes)
+            ? sanitize_text_field($input['filter_mode'])
+            : ($current_options['filter_mode'] ?? 'convert_to_markdown');
+
+        // Sanitize boolean fields
+        $boolean_fields = [
+            'apply_to_rest_api',
+            'apply_to_content',
+            'apply_to_excerpt',
+            'preserve_line_breaks',
+            'convert_headings',
+            'convert_links',
+            'convert_lists',
+            'convert_emphasis',
+            'enable_cache',
+            'remove_plugin_data_on_uninstall'
+        ];
+
+        foreach ($boolean_fields as $field) {
+            $sanitized[$field] = isset($input[$field]) ? (bool) $input[$field] : false;
+        }
+
+        // Sanitize custom_allowed_tags
+        $sanitized['custom_allowed_tags'] = isset($input['custom_allowed_tags'])
+            ? sanitize_text_field($input['custom_allowed_tags'])
+            : '';
+
+        // Sanitize enabled_post_types
+        if (isset($input['enabled_post_types']) && is_array($input['enabled_post_types'])) {
+            $sanitized['enabled_post_types'] = array_map('sanitize_text_field', $input['enabled_post_types']);
+        } else {
+            $sanitized['enabled_post_types'] = $current_options['enabled_post_types'] ?? ['post', 'page'];
+        }
+
+        // Sanitize numeric fields
+        $numeric_fields = [
+            'cache_ttl' => ['min' => 60, 'max' => 86400, 'default' => 3600],
+            'batch_size' => ['min' => 10, 'max' => 1000, 'default' => 100]
+        ];
+
+        foreach ($numeric_fields as $field => $constraints) {
+            $value = isset($input[$field]) ? (int) $input[$field] : $constraints['default'];
+            $sanitized[$field] = max($constraints['min'], min($constraints['max'], $value));
+        }
+
+        return $sanitized;
     }
 
     /**
