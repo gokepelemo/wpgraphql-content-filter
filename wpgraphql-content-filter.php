@@ -237,6 +237,12 @@ class WPGraphQL_Content_Filter {
             ? WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR
             : plugin_dir_path(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE);
 
+        // Load Composer autoloader for external dependencies
+        $autoload_file = $plugin_dir . 'vendor/autoload.php';
+        if (file_exists($autoload_file)) {
+            require_once $autoload_file;
+        }
+
         $includes_dir = $plugin_dir . 'includes/';
 
         require_once $includes_dir . 'interface-wpgraphql-content-filter-hook-manager.php';

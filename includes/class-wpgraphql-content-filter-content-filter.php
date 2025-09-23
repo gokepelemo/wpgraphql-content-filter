@@ -139,9 +139,6 @@ class WPGraphQL_Content_Filter_Content_Filter {
      * @return string
      */
     private function strip_all_tags($content, $preserve_line_breaks = true) {
-        // Load Composer autoloader if available
-        $this->load_composer_autoloader();
-
         // Try HTMLPurifier first for robust HTML cleaning
         if (class_exists('HTMLPurifier')) {
             try {
@@ -223,9 +220,6 @@ class WPGraphQL_Content_Filter_Content_Filter {
      * @return string
      */
     private function convert_to_markdown($content, $options) {
-        // Load Composer autoloader if available
-        $this->load_composer_autoloader();
-
         // Check if league/html-to-markdown is available
         if (class_exists('\League\HTMLToMarkdown\HtmlConverter')) {
             try {
@@ -264,31 +258,6 @@ class WPGraphQL_Content_Filter_Content_Filter {
 
         // Fallback to regex-based conversion (includes orphaned attribute cleanup)
         return $this->convert_to_markdown_regex($content, $options);
-    }
-
-    /**
-     * Load Composer autoloader if available.
-     *
-     * @return void
-     */
-    private function load_composer_autoloader() {
-        static $loaded = false;
-
-        if ($loaded) {
-            return;
-        }
-
-        // Get plugin directory - use constant if available, otherwise calculate it
-        $plugin_dir = defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')
-            ? WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR
-            : plugin_dir_path(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE);
-
-        $autoload_file = $plugin_dir . 'vendor/autoload.php';
-
-        if (file_exists($autoload_file)) {
-            require_once $autoload_file;
-            $loaded = true;
-        }
     }
 
     /**
@@ -371,9 +340,6 @@ class WPGraphQL_Content_Filter_Content_Filter {
      * @return string
      */
     private function strip_custom_tags($content, $allowed_tags) {
-        // Load Composer autoloader if available
-        $this->load_composer_autoloader();
-
         // Try HTMLPurifier first for robust HTML cleaning
         if (class_exists('HTMLPurifier')) {
             try {
