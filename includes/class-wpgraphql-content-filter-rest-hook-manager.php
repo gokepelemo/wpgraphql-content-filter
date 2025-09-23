@@ -74,8 +74,19 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Register hooks immediately instead of waiting for rest_api_init
-        $this->register_rest_hooks();
+        // Defer hook registration to after init to ensure WordPress functions are available
+        add_action('wp_loaded', array($this, 'maybe_register_hooks'));
+    }
+
+    /**
+     * Maybe register hooks if REST API should be loaded.
+     *
+     * @return void
+     */
+    public function maybe_register_hooks() {
+        if ($this->should_load()) {
+            $this->register_hooks();
+        }
     }
 
     /**
