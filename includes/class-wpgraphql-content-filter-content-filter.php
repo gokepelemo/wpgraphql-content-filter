@@ -35,6 +35,27 @@ class WPGraphQL_Content_Filter_Content_Filter {
      * @var WPGraphQL_Content_Filter_Content_Filter|null
      */
     private static $instance = null;
+
+    /**
+     * Cached HTMLPurifier instances for different configurations.
+     *
+     * @var array
+     */
+    private $htmlpurifier_cache = [];
+
+    /**
+     * Cached HtmlConverter instances for different configurations.
+     *
+     * @var array
+     */
+    private $htmlconverter_cache = [];
+
+    /**
+     * Content processing cache to avoid reprocessing identical content.
+     *
+     * @var array
+     */
+    private $content_cache = [];
     
     /**
      * Get singleton instance.
@@ -49,10 +70,106 @@ class WPGraphQL_Content_Filter_Content_Filter {
     }
     
     /**
-     * Private constructor.
+     * Get cached HTMLPurifier instance for stripping all tags.
+     *
+     * @param bool $preserve_line_breaks Whether to preserve line breaks.
+     * @return HTMLPurifier|null
      */
-    private function __construct() {
-        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+    private function get_strip_all_purifier($preserve_line_breaks = true) {
+        $cache_key = 'strip_all_' . ($preserve_line_breaks ? 'with_breaks' : 'no_breaks');
+
+        if (!isset($this->htmlpurifier_cache[$cache_key])) {
+            $config = HTMLPurifier_Config::createDefault();
+            $config->set('HTML.AllowedElements', []);
+            $config->set('HTML.AllowedAttributes', []);
+            $config->set('AutoFormat.RemoveEmpty', true);
+            $config->set('HTML.Allowed', '');
+            $config->set('CSS.AllowedProperties', []);
+            $config->set('Attr.AllowedClasses', []);
+            $config->set('Cache.SerializerPath', null); // Disable caching to avoid file system issues
+
+            $this->htmlpurifier_cache[$cache_key] = new HTMLPurifier($config);
+        }
+
+        return $this->htmlpurifier_cache[$cache_key];
+    }
+
+    /**
+     * Get cached HTMLPurifier instance for custom tag filtering.
+     *
+     * @param string $allowed_tags Comma-separated list of allowed tags.
+     * @return HTMLPurifier|null
+     */
+    private function get_custom_tags_purifier($allowed_tags) {
+        $cache_key = 'custom_' . md5($allowed_tags);
+
+        if (!isset($this->htmlpurifier_cache[$cache_key])) {
+            $config = HTMLPurifier_Config::createDefault();
+
+            if (empty($allowed_tags)) {
+                $config->set('HTML.AllowedElements', []);
+                $config->set('HTML.AllowedAttributes', []);
+            } else {
+                $tags = array_map('trim', explode(',', $allowed_tags));
+                $allowed_elements = [];
+
+                foreach ($tags as $tag) {
+                    $tag = trim($tag, '<>');
+                    if (!empty($tag)) {
+                        $allowed_elements[] = $tag;
+                    }
+                }
+
+                $config->set('HTML.AllowedElements', $allowed_elements);
+                $config->set('HTML.AllowedAttributes', [
+                    '*' => ['class', 'id'],
+                    'a' => ['href', 'title'],
+                    'img' => ['src', 'alt', 'width', 'height'],
+                ]);
+            }
+
+            $config->set('AutoFormat.RemoveEmpty', true);
+            $config->set('Cache.SerializerPath', null);
+
+            $this->htmlpurifier_cache[$cache_key] = new HTMLPurifier($config);
+        }
+
+        return $this->htmlpurifier_cache[$cache_key];
+    }
+
+    /**
+     * Get cached HtmlConverter instance.
+     *
+     * @param array $options Conversion options.
+     * @return \League\HTMLToMarkdown\HtmlConverter|null
+     */
+    private function get_html_converter($options) {
+        // Create a cache key based on relevant options
+        $cache_key = 'converter_' .
+            ($options['convert_headings'] ? '1' : '0') . '_' .
+            ($options['convert_links'] ? '1' : '0');
+
+        if (!isset($this->htmlconverter_cache[$cache_key])) {
+            $converter = new \League\HTMLToMarkdown\HtmlConverter([
+                'header_style' => 'atx',
+                'preserve_comments' => false,
+                'strip_tags' => true,
+                'remove_nodes' => 'script style',
+            ]);
+
+            // Configure converters based on options
+            if (!$options['convert_headings']) {
+                $converter->getConfig()->setOption('strip_placeholder_links', true);
+            }
+
+            if (!$options['convert_links']) {
+                $converter->getConfig()->setOption('strip_placeholder_links', true);
+            }
+
+            $this->htmlconverter_cache[$cache_key] = $converter;
+        }
+
+        return $this->htmlconverter_cache[$cache_key];
     }
     
     /**
@@ -83,8 +200,19 @@ class WPGraphQL_Content_Filter_Content_Filter {
             return $content;
         }
 
+        // Create cache key for content caching
+        $cache_key = md5($content . $field_type . serialize($options));
+        if (isset($this->content_cache[$cache_key])) {
+            return $this->content_cache[$cache_key];
+        }
+
         try {
-            return $this->apply_filter($content, $options);
+            $result = $this->apply_filter($content, $options);
+            // Cache the result (limit cache size to prevent memory issues)
+            if (count($this->content_cache) < 100) {
+                $this->content_cache[$cache_key] = $result;
+            }
+            return $result;
         } catch (Exception $e) {
             // Log error in debug mode and return original content
             if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -142,22 +270,12 @@ class WPGraphQL_Content_Filter_Content_Filter {
         // Try HTMLPurifier first for robust HTML cleaning
         if (class_exists('HTMLPurifier')) {
             try {
-                $config = HTMLPurifier_Config::createDefault();
-
-                // Strip all HTML tags by setting allowed elements to empty
-                $config->set('HTML.AllowedElements', []);
-                $config->set('HTML.AllowedAttributes', []);
-                $config->set('AutoFormat.RemoveEmpty', true);
-                $config->set('HTML.Allowed', ''); // Ensure no HTML is allowed
-                $config->set('CSS.AllowedProperties', []); // No CSS either
-                $config->set('Attr.AllowedClasses', []); // No classes
-
                 if ($preserve_line_breaks) {
                     // Convert block elements to line breaks before purifying
                     $content = preg_replace('/<\/?(p|div|br|h[1-6]|li|ul|ol)[^>]*>/i', "\n", $content);
                 }
 
-                $purifier = new HTMLPurifier($config);
+                $purifier = $this->get_strip_all_purifier($preserve_line_breaks);
                 $content = $purifier->purify($content);
 
                 // Clean up extra whitespace
@@ -223,22 +341,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
         // Check if league/html-to-markdown is available
         if (class_exists('\League\HTMLToMarkdown\HtmlConverter')) {
             try {
-                $converter = new \League\HTMLToMarkdown\HtmlConverter([
-                    'header_style' => 'atx',
-                    'preserve_comments' => false,
-                    'strip_tags' => true,
-                    'remove_nodes' => 'script style',
-                ]);
-
-                // Configure converters based on options
-                if (!$options['convert_headings']) {
-                    $converter->getConfig()->setOption('strip_placeholder_links', true);
-                }
-
-                if (!$options['convert_links']) {
-                    $converter->getConfig()->setOption('strip_placeholder_links', true);
-                }
-
+                $converter = $this->get_html_converter($options);
                 $markdown = $converter->convert($content);
 
                 // Clean up extra whitespace
@@ -268,55 +371,63 @@ class WPGraphQL_Content_Filter_Content_Filter {
      * @return string
      */
     private function convert_to_markdown_regex($content, $options) {
+        // Use a single pass with multiple patterns where possible for better performance
+        $patterns = [];
         $replacements = [];
 
         if ($options['convert_headings']) {
-            $replacements = array_merge($replacements, [
-                '/<h1[^>]*>(.*?)<\/h1>/i' => '# $1',
-                '/<h2[^>]*>(.*?)<\/h2>/i' => '## $1',
-                '/<h3[^>]*>(.*?)<\/h3>/i' => '### $1',
-                '/<h4[^>]*>(.*?)<\/h4>/i' => '#### $1',
-                '/<h5[^>]*>(.*?)<\/h5>/i' => '##### $1',
-                '/<h6[^>]*>(.*?)<\/h6>/i' => '###### $1',
-            ]);
+            // Combine heading patterns
+            $patterns[] = '/<h([1-6])[^>]*>(.*?)<\/h\1>/i';
+            $replacements[] = function($matches) {
+                return str_repeat('#', $matches[1]) . ' ' . $matches[2];
+            };
         }
 
         if ($options['convert_emphasis']) {
-            $replacements = array_merge($replacements, [
-                '/<strong[^>]*>(.*?)<\/strong>/i' => '**$1**',
-                '/<b[^>]*>(.*?)<\/b>/i' => '**$1**',
-                '/<em[^>]*>(.*?)<\/em>/i' => '_$1_',
-                '/<i[^>]*>(.*?)<\/i>/i' => '_$1_',
-            ]);
+            // Combine strong/bold tags
+            $patterns[] = '/<(strong|b)[^>]*>(.*?)<\/\1>/i';
+            $replacements[] = '**$2**';
+
+            // Combine em/italic tags
+            $patterns[] = '/<(em|i)[^>]*>(.*?)<\/\1>/i';
+            $replacements[] = '_$2_';
         }
 
         if ($options['convert_links']) {
-            $replacements = array_merge($replacements, [
-                '/<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/i' => '[$2]($1)',
-            ]);
+            $patterns[] = '/<a[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/i';
+            $replacements[] = '[$2]($1)';
         }
 
         if ($options['convert_lists']) {
-            $replacements = array_merge($replacements, [
-                '/<ul[^>]*>/i' => '',
-                '/<\/ul>/i' => '',
-                '/<ol[^>]*>/i' => '',
-                '/<\/ol>/i' => '',
-                '/<li[^>]*>(.*?)<\/li>/i' => '- $1',
-            ]);
+            // Remove list containers
+            $patterns[] = '/<\/?(ul|ol)[^>]*>/i';
+            $replacements[] = '';
+
+            // Convert list items
+            $patterns[] = '/<li[^>]*>(.*?)<\/li>/i';
+            $replacements[] = '- $1';
         }
 
         // Basic paragraph and line break handling
-        $replacements = array_merge($replacements, [
-            '/<p[^>]*>/i' => '',
-            '/<\/p>/i' => "\n\n",
-            '/<br[^>]*>/i' => "\n",
-            '/<code[^>]*>(.*?)<\/code>/i' => '`$1`',
-            '/<pre[^>]*>(.*?)<\/pre>/i' => "```\n$1\n```",
-        ]);
+        $patterns[] = '/<\/?p[^>]*>/i';
+        $replacements[] = '';
 
-        foreach ($replacements as $pattern => $replacement) {
-            $content = preg_replace($pattern, $replacement, $content);
+        $patterns[] = '/<br[^>]*>/i';
+        $replacements[] = "\n";
+
+        $patterns[] = '/<code[^>]*>(.*?)<\/code>/i';
+        $replacements[] = '`$1`';
+
+        $patterns[] = '/<pre[^>]*>(.*?)<\/pre>/i';
+        $replacements[] = "```\n\$1\n```";
+
+        // Apply all patterns in a single pass for better performance
+        foreach ($patterns as $i => $pattern) {
+            if (is_callable($replacements[$i])) {
+                $content = preg_replace_callback($pattern, $replacements[$i], $content);
+            } else {
+                $content = preg_replace($pattern, $replacements[$i], $content);
+            }
         }
 
         // Strip remaining HTML tags
@@ -343,36 +454,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
         // Try HTMLPurifier first for robust HTML cleaning
         if (class_exists('HTMLPurifier')) {
             try {
-                $config = HTMLPurifier_Config::createDefault();
-
-                if (empty($allowed_tags)) {
-                    // Strip all tags
-                    $config->set('HTML.AllowedElements', []);
-                    $config->set('HTML.AllowedAttributes', []);
-                } else {
-                    // Parse allowed tags
-                    $tags = array_map('trim', explode(',', $allowed_tags));
-                    $allowed_elements = [];
-
-                    foreach ($tags as $tag) {
-                        $tag = trim($tag, '<>');
-                        if (!empty($tag)) {
-                            $allowed_elements[] = $tag;
-                        }
-                    }
-
-                    $config->set('HTML.AllowedElements', $allowed_elements);
-                    // Allow basic attributes for allowed elements
-                    $config->set('HTML.AllowedAttributes', [
-                        '*' => ['class', 'id'],
-                        'a' => ['href', 'title'],
-                        'img' => ['src', 'alt', 'width', 'height'],
-                    ]);
-                }
-
-                $config->set('AutoFormat.RemoveEmpty', true);
-
-                $purifier = new HTMLPurifier($config);
+                $purifier = $this->get_custom_tags_purifier($allowed_tags);
                 // HTMLPurifier handles all HTML properly, no need for additional cleanup
                 return $purifier->purify($content);
             } catch (Exception $e) {
@@ -420,35 +502,15 @@ class WPGraphQL_Content_Filter_Content_Filter {
      * @return string
      */
     private function clean_orphaned_attributes($content) {
-        // Remove orphaned attributes that might be left behind
-        // Pattern explanation: looks for attribute-like patterns (word=value or word="value" or word='value')
-        // that are not within proper HTML tags
-
+        // More efficient cleanup of orphaned attributes using combined patterns
         // Remove orphaned attribute patterns like: href="..." class="..." id="..." etc.
-        $content = preg_replace('/\s+\w+\s*=\s*["\'][^"\']*["\']/', '', $content);
+        $content = preg_replace('/\s+\w+(?:-\w+)*\s*=\s*["\'][^"\']*["\']/', '', $content);
 
         // Remove orphaned attribute patterns without quotes like: href=value class=value
-        $content = preg_replace('/\s+\w+\s*=\s*[^\s<>"\']+/', '', $content);
+        $content = preg_replace('/\s+\w+(?:-\w+)*\s*=\s*[^\s<>"\']+/', '', $content);
 
-        // Remove orphaned boolean attributes (standalone words that look like HTML attributes)
-        $orphaned_attrs = [
-            'class', 'id', 'href', 'src', 'alt', 'title', 'target', 'rel', 'style', 'data-',
-            'width', 'height', 'role', 'aria-', 'type', 'name', 'value', 'placeholder',
-            'disabled', 'checked', 'selected', 'readonly', 'required', 'autofocus',
-            'multiple', 'hidden', 'defer', 'async', 'autoplay', 'controls', 'loop', 'muted'
-        ];
-
-        foreach ($orphaned_attrs as $attr) {
-            // Remove standalone attribute names that appear without context
-            if (strpos($attr, '-') !== false) {
-                // For attributes like data- or aria-, match the pattern
-                $pattern = '/\s+' . preg_quote(rtrim($attr, '-'), '/') . '-[\w-]*(?:\s*=\s*["\'][^"\']*["\']|\s*=\s*[^\s<>"\']+)?\s*/';
-            } else {
-                // For regular attributes
-                $pattern = '/\s+' . preg_quote($attr, '/') . '(?:\s*=\s*["\'][^"\']*["\']|\s*=\s*[^\s<>"\']+)?\s*/';
-            }
-            $content = preg_replace($pattern, ' ', $content);
-        }
+        // Remove common orphaned boolean attributes in one pass
+        $content = preg_replace('/\s+(?:class|id|href|src|alt|title|target|rel|style|width|height|role|type|name|value|placeholder|disabled|checked|selected|readonly|required|autofocus|multiple|hidden|defer|async|autoplay|controls|loop|muted|data-\w+|aria-\w+)\b/', '', $content);
 
         // Clean up extra whitespace that might be left behind
         $content = preg_replace('/\s+/', ' ', $content);
