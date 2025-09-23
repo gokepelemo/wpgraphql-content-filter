@@ -248,11 +248,39 @@ class WPGraphQL_Content_Filter {
     }
 
     /**
+     * Load Composer autoloader for HTML processing libraries.
+     *
+     * @return void
+     */
+    private function load_composer_autoloader() {
+        static $loaded = false;
+
+        if ($loaded) {
+            return;
+        }
+
+        // Get plugin directory - use constant if available, otherwise calculate it
+        $plugin_dir = defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR')
+            ? WPGRAPHQL_CONTENT_FILTER_PLUGIN_DIR
+            : plugin_dir_path(WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE);
+
+        $autoload_file = $plugin_dir . 'vendor/autoload.php';
+
+        if (file_exists($autoload_file)) {
+            require_once $autoload_file;
+            $loaded = true;
+        }
+    }
+
+    /**
      * Initialize all manager instances.
      *
      * @return void
      */
     private function init_managers() {
+        // Load Composer autoloader early for HTML processing libraries
+        $this->load_composer_autoloader();
+
         // Initialize Options Manager first (core dependency)
         $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
 

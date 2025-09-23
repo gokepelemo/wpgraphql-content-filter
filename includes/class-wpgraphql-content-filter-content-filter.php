@@ -151,6 +151,9 @@ class WPGraphQL_Content_Filter_Content_Filter {
                 $config->set('HTML.AllowedElements', []);
                 $config->set('HTML.AllowedAttributes', []);
                 $config->set('AutoFormat.RemoveEmpty', true);
+                $config->set('HTML.Allowed', ''); // Ensure no HTML is allowed
+                $config->set('CSS.AllowedProperties', []); // No CSS either
+                $config->set('Attr.AllowedClasses', []); // No classes
 
                 if ($preserve_line_breaks) {
                     // Convert block elements to line breaks before purifying
