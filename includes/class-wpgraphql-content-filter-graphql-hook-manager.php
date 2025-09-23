@@ -59,9 +59,9 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content
      * Private constructor.
      */
     private function __construct() {
-        // Dependencies will be injected via init() method
-        $this->content_filter = null;
-        $this->options_manager = null;
+        // Initialize dependencies - they will be overridden by init() if called
+        $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
+        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
     }
 
     /**
@@ -74,7 +74,16 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Register hooks if this should load
+        // Defer hook registration to when plugins are fully loaded
+        add_action('init', array($this, 'maybe_register_hooks'), 20);
+    }
+
+    /**
+     * Maybe register hooks if WPGraphQL is available.
+     *
+     * @return void
+     */
+    public function maybe_register_hooks() {
         if ($this->should_load()) {
             $this->register_hooks();
         }
@@ -104,8 +113,8 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content
      * @return bool
      */
     public function should_load() {
-        // Only load if WPGraphQL is available
-        return class_exists('WPGraphQL');
+        // Only load if WPGraphQL is available - use defensive check
+        return class_exists('WPGraphQL') || function_exists('graphql');
     }
     
     /**

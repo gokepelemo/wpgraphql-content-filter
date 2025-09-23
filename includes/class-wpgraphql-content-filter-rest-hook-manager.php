@@ -59,9 +59,9 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * Private constructor.
      */
     private function __construct() {
-        // Dependencies will be injected via init() method
-        $this->content_filter = null;
-        $this->options_manager = null;
+        // Initialize dependencies - they will be overridden by init() if called
+        $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();
+        $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
     }
     
     /**
@@ -74,10 +74,8 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Register hooks immediately if this should load
-        if ($this->should_load()) {
-            $this->register_hooks();
-        }
+        // Always register hooks for REST API since it's part of core WordPress
+        $this->register_hooks();
     }
 
     /**

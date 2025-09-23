@@ -71,26 +71,30 @@ if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION_OPTION')) {
  * Check for WPGraphQL dependency
  */
 function wpgraphql_content_filter_check_dependencies() {
-    // Check if WPGraphQL is active
+    // Note: Plugin now works with REST API even without WPGraphQL
+    // Only show warning notices, don't deactivate the plugin
+
     if (!class_exists('WPGraphQL') && !function_exists('graphql')) {
         add_action('admin_notices', 'wpgraphql_content_filter_dependency_notice');
         add_action('network_admin_notices', 'wpgraphql_content_filter_dependency_notice');
-        
-        // Deactivate the plugin if WPGraphQL is not available
-        add_action('admin_init', 'wpgraphql_content_filter_deactivate_self');
-        
-        return false;
+
+        // Don't deactivate - let the plugin work with REST API only
+        // add_action('admin_init', 'wpgraphql_content_filter_deactivate_self');
+
+        // Return true to allow plugin to load for REST API functionality
+        return true;
     }
-    
+
     // Check WPGraphQL version if available
     if (class_exists('WPGraphQL') && defined('WPGRAPHQL_VERSION')) {
         if (version_compare(WPGRAPHQL_VERSION, '1.0.0', '<')) {
             add_action('admin_notices', 'wpgraphql_content_filter_version_notice');
             add_action('network_admin_notices', 'wpgraphql_content_filter_version_notice');
-            return false;
+            // Still allow plugin to work with REST API
+            return true;
         }
     }
-    
+
     return true;
 }
 
@@ -98,14 +102,14 @@ function wpgraphql_content_filter_check_dependencies() {
  * Display dependency notice
  */
 function wpgraphql_content_filter_dependency_notice() {
-    $class = 'notice notice-error';
+    $class = 'notice notice-warning';
     $message = sprintf(
         /* translators: %1$s: Plugin name, %2$s: Required plugin name */
-        __('%1$s requires %2$s to be installed and activated. Please install and activate %2$s first.', 'wpgraphql-content-filter'),
+        __('%1$s works best with %2$s installed. While the plugin will work with WordPress REST API, install %2$s for GraphQL functionality.', 'wpgraphql-content-filter'),
         '<strong>WPGraphQL Content Filter</strong>',
         '<strong>WPGraphQL</strong>'
     );
-    
+
     printf('<div class="%1$s"><p>%2$s</p></div>', esc_attr($class), wp_kses_post($message));
 }
 
