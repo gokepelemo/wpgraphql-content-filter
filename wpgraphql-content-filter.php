@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 2.1.16
+ * Version: 2.1.17
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -33,7 +33,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 if (!defined('WPGRAPHQL_CONTENT_FILTER_VERSION')) {
-    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.1.16');
+    define('WPGRAPHQL_CONTENT_FILTER_VERSION', '2.1.17');
 }
 if (!defined('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE')) {
     define('WPGRAPHQL_CONTENT_FILTER_PLUGIN_FILE', __FILE__);
@@ -329,7 +329,7 @@ class WPGraphQL_Content_Filter {
      */
     public static function activate($network_wide = false) {
         $default_options = [
-            'filter_mode' => 'strip_all',
+            'filter_mode' => 'markdown',
             'preserve_line_breaks' => true,
             'convert_headings' => true,
             'convert_links' => true,

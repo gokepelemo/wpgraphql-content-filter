@@ -71,7 +71,7 @@ class WPGraphQL_Content_Filter_Options_Manager {
      */
     public function get_default_options() {
         return [
-            'filter_mode' => 'strip_all',
+            'filter_mode' => 'markdown',
             'preserve_line_breaks' => true,
             'convert_headings' => true,
             'convert_links' => true,
