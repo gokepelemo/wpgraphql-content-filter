@@ -306,6 +306,7 @@ class WPGraphQL_Content_Filter {
 
         $this->rest_hook_manager = WPGraphQL_Content_Filter_REST_Hook_Manager::get_instance();
         $this->rest_hook_manager->init($this->options_manager, $this->content_filter);
+        $this->rest_hook_manager->register_hooks();
 
         // Initialize Admin Manager (only in admin context)
         if (is_admin()) {
