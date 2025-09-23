@@ -110,6 +110,11 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * Register REST API response hooks for all public post types.
      */
     public function register_rest_hooks() {
+        // Early return if WordPress core functions aren't available yet
+        if (!function_exists('add_filter')) {
+            return;
+        }
+
         if (defined('WP_DEBUG') && WP_DEBUG) {
             error_log('WPGraphQL Content Filter: register_rest_hooks called');
         }
@@ -131,6 +136,12 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @return array
      */
     private function get_rest_post_types() {
+        // Defensive check - ensure WordPress function is available
+        if (!function_exists('get_post_types')) {
+            // Fallback to default post types if function not available
+            return ['post', 'page'];
+        }
+
         return get_post_types(['public' => true], 'names');
     }
     

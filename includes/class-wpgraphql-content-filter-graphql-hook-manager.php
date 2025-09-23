@@ -74,8 +74,8 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Defer hook registration to when plugins are fully loaded
-        add_action('init', array($this, 'maybe_register_hooks'), 20);
+        // Defer hook registration to after init to avoid conflicts
+        add_action('wp_loaded', array($this, 'maybe_register_hooks'));
     }
 
     /**
