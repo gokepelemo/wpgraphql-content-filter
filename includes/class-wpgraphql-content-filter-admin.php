@@ -188,10 +188,10 @@ class WPGraphQL_Content_Filter_Admin {
                 'field' => 'filter_mode',
                 'label' => 'Choose how to filter content in API responses',
                 'options' => [
-                    'strip_html' => 'Strip HTML',
-                    'convert_to_markdown' => 'Convert to Markdown'
+                    'strip_all' => 'Strip HTML',
+                    'markdown' => 'Convert to Markdown'
                 ],
-                'default' => 'convert_to_markdown'
+                'default' => 'strip_all'
             ]
         );
 
@@ -400,10 +400,10 @@ class WPGraphQL_Content_Filter_Admin {
         $current_options = $this->options_manager->get_options();
 
         // Sanitize filter_mode
-        $allowed_modes = ['strip_html', 'convert_to_markdown'];
+        $allowed_modes = ['strip_all', 'markdown', 'custom', 'none'];
         $sanitized['filter_mode'] = isset($input['filter_mode']) && in_array($input['filter_mode'], $allowed_modes)
             ? sanitize_text_field($input['filter_mode'])
-            : ($current_options['filter_mode'] ?? 'convert_to_markdown');
+            : ($current_options['filter_mode'] ?? 'markdown');
 
         // Sanitize boolean fields
         $boolean_fields = [

@@ -125,16 +125,16 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content
         
         foreach ($post_types as $post_type) {
             // Use WPGraphQL's object field filters for each post type
-            add_filter("graphql_resolve_field_value_{$post_type}_content", [$this, 'filter_graphql_content_field'], 10, 4);
-            add_filter("graphql_resolve_field_value_{$post_type}_excerpt", [$this, 'filter_graphql_excerpt_field'], 10, 4);
+            add_filter("graphql_resolve_field_value_{$post_type}_content", [$this, 'filter_graphql_content_field'], 5, 4);
+            add_filter("graphql_resolve_field_value_{$post_type}_excerpt", [$this, 'filter_graphql_excerpt_field'], 5, 4);
             
             // Also try the post object field filters as fallback
-            add_filter("graphql_{$post_type}_object_content", [$this, 'filter_content'], 10, 3);
-            add_filter("graphql_{$post_type}_object_excerpt", [$this, 'filter_excerpt'], 10, 3);
+            add_filter("graphql_{$post_type}_object_content", [$this, 'filter_content'], 5, 3);
+            add_filter("graphql_{$post_type}_object_excerpt", [$this, 'filter_excerpt'], 5, 3);
         }
         
         // Also add a general field resolver filter as backup
-        add_filter('graphql_resolve_field', [$this, 'filter_graphql_field'], 10, 9);
+        add_filter('graphql_resolve_field', [$this, 'filter_graphql_field'], 5, 9);
     }
     
     /**

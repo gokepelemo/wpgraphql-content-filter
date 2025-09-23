@@ -151,7 +151,7 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @param string $post_type The post type to filter.
      */
     private function add_rest_response_filter($post_type) {
-        add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 10, 3);
+        add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 5, 3);
     }
     
     /**
@@ -218,17 +218,30 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         try {
             // Filter content field if present and enabled
             if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Filtering content field, original length: ' . strlen($response->data['content']['rendered']));
+                }
+                
                 $content = $this->decode_content($response->data['content']['rendered']);
                 $filtered_content = $this->content_filter->filter_field_content(
                     $content,
                     'content',
                     $options
                 );
+                
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Filtered content length: ' . strlen($filtered_content));
+                }
+                
                 $response->data['content']['rendered'] = $filtered_content;
             }
 
             // Filter excerpt field if present and enabled
             if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Filtering excerpt field');
+                }
+                
                 $excerpt = $this->decode_content($response->data['excerpt']['rendered']);
                 $filtered_excerpt = $this->content_filter->filter_field_content(
                     $excerpt,
@@ -241,6 +254,7 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
             // Log error if WP_DEBUG is enabled
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 error_log('WPGraphQL Content Filter REST Filtering Error: ' . $e->getMessage());
+                error_log('WPGraphQL Content Filter REST Filtering Error Trace: ' . $e->getTraceAsString());
             }
             // Return original response if filtering fails
         }

@@ -335,7 +335,7 @@ class WPGraphQL_Content_Filter {
      */
     public static function activate($network_wide = false) {
         $default_options = [
-            'filter_mode' => 'markdown',
+            'filter_mode' => 'strip_all',
             'preserve_line_breaks' => true,
             'convert_headings' => true,
             'convert_links' => true,
@@ -447,7 +447,7 @@ class WPGraphQL_Content_Filter {
         // Only add default options if they don't exist
         if (!get_option(WPGRAPHQL_CONTENT_FILTER_OPTIONS, false)) {
             $default_options = [
-                'filter_mode' => 'none',
+                'filter_mode' => 'strip_all',
                 'preserve_line_breaks' => true,
                 'convert_headings' => true,
                 'convert_links' => true,
