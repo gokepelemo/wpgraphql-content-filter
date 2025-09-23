@@ -3,7 +3,7 @@
  * Plugin Name: WPGraphQL Content Filter
  * Plugin URI: https://github.com/gokepelemo/wpgraphql-content-filter/
  * Description: Filter and sanitize content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists. Requires WPGraphQL plugin.
- * Version: 2.1.18
+ * Version: 2.1.19
  * Author: Goke Pelemo
  * Author URI: https://github.com/gokepelemo
  * License: GPL v2 or later
@@ -149,7 +149,13 @@ function wpgraphql_content_filter_deactivate_self() {
  */
 function wpgraphql_content_filter_init() {
     if (wpgraphql_content_filter_check_dependencies()) {
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter: Initializing plugin');
+        }
         WPGraphQL_Content_Filter::getInstance();
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter: Plugin initialized successfully');
+        }
     }
 }
 
@@ -289,6 +295,7 @@ class WPGraphQL_Content_Filter {
 
         // Initialize Options Manager first (core dependency)
         $this->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
+        $this->options_manager->init();
 
         // Initialize Content Filter (gets its own Options Manager instance)
         $this->content_filter = WPGraphQL_Content_Filter_Content_Filter::get_instance();

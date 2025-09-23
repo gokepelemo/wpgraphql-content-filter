@@ -59,6 +59,15 @@ class WPGraphQL_Content_Filter_Options_Manager {
      * Private constructor.
      */
     private function __construct() {
+        // Hook registration moved to init() method to avoid WordPress function calls during class loading
+    }
+    
+    /**
+     * Initialize the options manager and register hooks.
+     *
+     * @return void
+     */
+    public function init() {
         // Hook to clear cache when options are updated
         add_action('updated_option', [$this, 'on_option_updated'], 10, 3);
         add_action('updated_site_option', [$this, 'on_site_option_updated'], 10, 3);

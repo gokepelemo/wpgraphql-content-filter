@@ -65,6 +65,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
     public static function get_instance() {
         if (self::$instance === null) {
             self::$instance = new self();
+            self::$instance->options_manager = WPGraphQL_Content_Filter_Options_Manager::get_instance();
         }
         return self::$instance;
     }

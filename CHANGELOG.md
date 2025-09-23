@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.19] - 2025-01-09
+
+### Fixed
+
+- **Content Filter Initialization**: Fixed missing options manager initialization in content filter singleton, ensuring proper dependency injection
+- **API Content Filtering**: Resolved issues with HTML stripping and Markdown conversion not being applied to REST API and GraphQL API responses
+- **Hook Priorities**: Reduced hook priorities from 10 to 5 to ensure content filtering executes before other plugins
+- **Default Filter Mode**: Changed default filter mode from 'markdown' to 'strip_all' for immediate HTML security
+- **Settings Consistency**: Ensured consistent option values between admin form and content filter logic
+- **Debug Logging**: Added comprehensive debug logging for REST API filtering when WP_DEBUG is enabled
+
+### Enhanced
+
+- **Performance Optimization**: Implemented instance caching for HTMLPurifier and HtmlConverter objects
+- **Content Caching**: Added content processing cache to avoid reprocessing identical content
+- **Settings Sanitization**: Added proper sanitization callback for plugin settings to ensure data integrity
+
+### Technical
+
+- **Dependency Management**: Fixed autoloader loading during plugin initialization instead of lazy loading
+- **Singleton Pattern**: Corrected singleton initialization in content filter to properly initialize options manager
+- **Hook Registration**: Improved hook registration timing and priority management
+
 ## [2.1.11] - 2025-09-21
 
 ### Fixed
