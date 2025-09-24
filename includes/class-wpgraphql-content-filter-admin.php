@@ -1151,26 +1151,40 @@ class WPGraphQL_Content_Filter_Admin {
         <table class="form-table">
             <tr>
                 <th scope="row">
-                    <label for="apply_to_rest_api"><?php _e('WordPress REST API', 'wpgraphql-content-filter'); ?></label>
+                    <label for="allow_site_overrides"><?php _e('Allow Site Overrides', 'wpgraphql-content-filter'); ?></label>
                 </th>
                 <td>
-                    <input type="checkbox" id="apply_to_rest_api" name="apply_to_rest_api" value="1" <?php checked(isset($network_options['apply_to_rest_api']) ? $network_options['apply_to_rest_api'] : 0, 1); ?> />
-                    <label for="apply_to_rest_api"><?php _e('Enable content filtering for WordPress REST API responses', 'wpgraphql-content-filter'); ?></label>
+                    <input type="checkbox" id="allow_site_overrides" name="allow_site_overrides" value="1" <?php checked(isset($network_options['allow_site_overrides']) ? $network_options['allow_site_overrides'] : 1, 1); ?> />
+                    <label for="allow_site_overrides"><?php _e('Allow individual sites to override these network settings', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
+
             <tr>
                 <th scope="row">
                     <label for="filter_mode"><?php _e('Filter Mode', 'wpgraphql-content-filter'); ?></label>
                 </th>
                 <td>
                     <select id="filter_mode" name="filter_mode">
-                        <option value="strip_html" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'convert_to_markdown', 'strip_html'); ?>><?php _e('Strip HTML', 'wpgraphql-content-filter'); ?></option>
-                        <option value="convert_to_markdown" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'convert_to_markdown', 'convert_to_markdown'); ?>><?php _e('Convert to Markdown', 'wpgraphql-content-filter'); ?></option>
+                        <option value="none" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'strip_all', 'none'); ?>><?php _e('None (No filtering)', 'wpgraphql-content-filter'); ?></option>
+                        <option value="strip_all" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'strip_all', 'strip_all'); ?>><?php _e('Strip All HTML', 'wpgraphql-content-filter'); ?></option>
+                        <option value="strip_html" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'strip_all', 'strip_html'); ?>><?php _e('Strip HTML (legacy)', 'wpgraphql-content-filter'); ?></option>
+                        <option value="markdown" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'strip_all', 'markdown'); ?>><?php _e('Convert to Markdown', 'wpgraphql-content-filter'); ?></option>
+                        <option value="convert_to_markdown" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'strip_all', 'convert_to_markdown'); ?>><?php _e('Convert to Markdown (legacy)', 'wpgraphql-content-filter'); ?></option>
+                        <option value="custom" <?php selected(isset($network_options['filter_mode']) ? $network_options['filter_mode'] : 'strip_all', 'custom'); ?>><?php _e('Custom Allowed Tags', 'wpgraphql-content-filter'); ?></option>
                     </select>
                 </td>
             </tr>
-            
+
+            <tr>
+                <th scope="row">
+                    <label for="apply_to_rest_api"><?php _e('Apply to REST API', 'wpgraphql-content-filter'); ?></label>
+                </th>
+                <td>
+                    <input type="checkbox" id="apply_to_rest_api" name="apply_to_rest_api" value="1" <?php checked(isset($network_options['apply_to_rest_api']) ? $network_options['apply_to_rest_api'] : 1, 1); ?> />
+                    <label for="apply_to_rest_api"><?php _e('Enable content filtering for WordPress REST API responses', 'wpgraphql-content-filter'); ?></label>
+                </td>
+            </tr>
+
             <tr>
                 <th scope="row">
                     <label for="apply_to_content"><?php _e('Apply to Content Field', 'wpgraphql-content-filter'); ?></label>
@@ -1180,7 +1194,7 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="apply_to_content"><?php _e('Filter the main content field', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
+
             <tr>
                 <th scope="row">
                     <label for="apply_to_excerpt"><?php _e('Apply to Excerpt Field', 'wpgraphql-content-filter'); ?></label>
@@ -1190,9 +1204,9 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="apply_to_excerpt"><?php _e('Filter the excerpt field', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
+
             <!-- Markdown Options (conditionally shown) -->
-            <tr class="markdown-option" style="<?php echo (isset($network_options['filter_mode']) && $network_options['filter_mode'] === 'convert_to_markdown') ? '' : 'display: none;'; ?>">
+            <tr class="markdown-option" style="<?php echo (in_array($network_options['filter_mode'] ?? 'strip_all', ['markdown', 'convert_to_markdown'])) ? '' : 'display: none;'; ?>">
                 <th scope="row">
                     <label for="preserve_line_breaks"><?php _e('Preserve Line Breaks', 'wpgraphql-content-filter'); ?></label>
                 </th>
@@ -1201,8 +1215,8 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="preserve_line_breaks"><?php _e('Convert block elements to line breaks', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
-            <tr class="markdown-option" style="<?php echo (isset($network_options['filter_mode']) && $network_options['filter_mode'] === 'convert_to_markdown') ? '' : 'display: none;'; ?>">
+
+            <tr class="markdown-option" style="<?php echo (in_array($network_options['filter_mode'] ?? 'strip_all', ['markdown', 'convert_to_markdown'])) ? '' : 'display: none;'; ?>">
                 <th scope="row">
                     <label for="convert_headings"><?php _e('Convert Headings to Markdown', 'wpgraphql-content-filter'); ?></label>
                 </th>
@@ -1211,8 +1225,8 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="convert_headings"><?php _e('Convert H1-H6 tags to # syntax', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
-            <tr class="markdown-option" style="<?php echo (isset($network_options['filter_mode']) && $network_options['filter_mode'] === 'convert_to_markdown') ? '' : 'display: none;'; ?>">
+
+            <tr class="markdown-option" style="<?php echo (in_array($network_options['filter_mode'] ?? 'strip_all', ['markdown', 'convert_to_markdown'])) ? '' : 'display: none;'; ?>">
                 <th scope="row">
                     <label for="convert_links"><?php _e('Convert Links to Markdown', 'wpgraphql-content-filter'); ?></label>
                 </th>
@@ -1221,8 +1235,8 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="convert_links"><?php _e('Convert &lt;a&gt; tags to [text](url) syntax', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
-            <tr class="markdown-option" style="<?php echo (isset($network_options['filter_mode']) && $network_options['filter_mode'] === 'convert_to_markdown') ? '' : 'display: none;'; ?>">
+
+            <tr class="markdown-option" style="<?php echo (in_array($network_options['filter_mode'] ?? 'strip_all', ['markdown', 'convert_to_markdown'])) ? '' : 'display: none;'; ?>">
                 <th scope="row">
                     <label for="convert_lists"><?php _e('Convert Lists to Markdown', 'wpgraphql-content-filter'); ?></label>
                 </th>
@@ -1231,8 +1245,8 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="convert_lists"><?php _e('Convert &lt;ul&gt;/&lt;ol&gt; to - syntax', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
-            <tr class="markdown-option" style="<?php echo (isset($network_options['filter_mode']) && $network_options['filter_mode'] === 'convert_to_markdown') ? '' : 'display: none;'; ?>">
+
+            <tr class="markdown-option" style="<?php echo (in_array($network_options['filter_mode'] ?? 'strip_all', ['markdown', 'convert_to_markdown'])) ? '' : 'display: none;'; ?>">
                 <th scope="row">
                     <label for="convert_emphasis"><?php _e('Convert Emphasis to Markdown', 'wpgraphql-content-filter'); ?></label>
                 </th>
@@ -1241,58 +1255,77 @@ class WPGraphQL_Content_Filter_Admin {
                     <label for="convert_emphasis"><?php _e('Convert &lt;strong&gt;/&lt;em&gt; to **bold** and _italic_', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
-            
-            <tr>
+
+            <!-- Custom Tags Option (conditionally shown) -->
+            <tr class="custom-option" style="<?php echo ($network_options['filter_mode'] ?? 'strip_all' === 'custom') ? '' : 'display: none;'; ?>">
                 <th scope="row">
-                    <label for="enable_cache"><?php _e('Enable Cache', 'wpgraphql-content-filter'); ?></label>
+                    <label for="custom_allowed_tags"><?php _e('Custom Allowed Tags', 'wpgraphql-content-filter'); ?></label>
                 </th>
                 <td>
-                    <input type="checkbox" id="enable_cache" name="enable_cache" value="1" <?php checked(isset($network_options['enable_cache']) ? $network_options['enable_cache'] : 1, 1); ?> />
-                    <label for="enable_cache"><?php _e('Enable content filtering cache for improved performance', 'wpgraphql-content-filter'); ?></label>
+                    <input type="text" id="custom_allowed_tags" name="custom_allowed_tags" value="<?php echo esc_attr(isset($network_options['custom_allowed_tags']) ? $network_options['custom_allowed_tags'] : ''); ?>" class="regular-text" />
+                    <p class="description"><?php _e('Comma-separated list of allowed HTML tags (e.g., p,strong,em,a)', 'wpgraphql-content-filter'); ?></p>
                 </td>
             </tr>
-            
+
             <tr>
                 <th scope="row">
-                    <label for="cache_ttl"><?php _e('Cache TTL (seconds)', 'wpgraphql-content-filter'); ?></label>
+                    <label for="enabled_post_types"><?php _e('Enabled Post Types', 'wpgraphql-content-filter'); ?></label>
                 </th>
                 <td>
-                    <input type="number" id="cache_ttl" name="cache_ttl" value="<?php echo esc_attr(isset($network_options['cache_ttl']) ? $network_options['cache_ttl'] : 3600); ?>" min="60" max="86400" />
-                    <p class="description"><?php _e('How long to keep cached results', 'wpgraphql-content-filter'); ?></p>
+                    <?php
+                    $enabled_post_types = isset($network_options['enabled_post_types']) ? $network_options['enabled_post_types'] : ['post', 'page'];
+                    $post_types = get_post_types(['public' => true], 'objects');
+                    foreach ($post_types as $post_type) {
+                        $checked = in_array($post_type->name, $enabled_post_types);
+                        ?>
+                        <label style="display: block; margin-bottom: 5px;">
+                            <input type="checkbox" name="enabled_post_types[]" value="<?php echo esc_attr($post_type->name); ?>" <?php checked($checked); ?> />
+                            <?php echo esc_html($post_type->label); ?>
+                        </label>
+                        <?php
+                    }
+                    ?>
                 </td>
             </tr>
-            
+
             <tr>
                 <th scope="row">
-                    <label for="batch_size"><?php _e('Batch Size', 'wpgraphql-content-filter'); ?></label>
+                    <label for="remove_plugin_data_on_uninstall"><?php _e('Remove Data on Uninstall', 'wpgraphql-content-filter'); ?></label>
                 </th>
                 <td>
-                    <input type="number" id="batch_size" name="batch_size" value="<?php echo esc_attr(isset($network_options['batch_size']) ? $network_options['batch_size'] : 100); ?>" min="10" max="1000" />
-                    <p class="description"><?php _e('Number of items to process per batch', 'wpgraphql-content-filter'); ?></p>
-                </td>
-            </tr>
+                    <input type="checkbox" id="remove_plugin_data_on_uninstall" name="remove_plugin_data_on_uninstall" value="1" <?php checked(isset($network_options['remove_plugin_data_on_uninstall']) ? $network_options['remove_plugin_data_on_uninstall'] : 0, 1); ?> />
+                    <label for="remove_plugin_data_on_uninstall"><?php _e('Remove all plugin data when uninstalling', 'wpgraphql-content-filter'); ?></label>
                 </td>
             </tr>
         </table>
-        
+
         <script type="text/javascript">
         jQuery(document).ready(function($) {
-            function toggleMarkdownOptions() {
+            function toggleConditionalOptions() {
                 const filterMode = $('#filter_mode').val();
                 const markdownOptions = $('.markdown-option');
-                
-                if (filterMode === 'convert_to_markdown') {
+                const customOptions = $('.custom-option');
+
+                // Show/hide markdown options
+                if (filterMode === 'markdown' || filterMode === 'convert_to_markdown') {
                     markdownOptions.show();
                 } else {
                     markdownOptions.hide();
                 }
+
+                // Show/hide custom options
+                if (filterMode === 'custom') {
+                    customOptions.show();
+                } else {
+                    customOptions.hide();
+                }
             }
-            
+
             // Initial toggle
-            toggleMarkdownOptions();
-            
+            toggleConditionalOptions();
+
             // Toggle on change
-            $('#filter_mode').change(toggleMarkdownOptions);
+            $('#filter_mode').change(toggleConditionalOptions);
         });
         </script>
         <?php

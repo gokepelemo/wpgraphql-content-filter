@@ -167,6 +167,11 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @return WP_REST_Response
      */
     public function filter_rest_response($response, $post, $request) {
+        // Debug logging
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter REST: Hook triggered for post ' . ($post->ID ?? 'unknown'));
+        }
+
         // Early return if dependencies aren't properly initialized
         if (!$this->options_manager || !$this->content_filter) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -177,19 +182,32 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
 
         // Ensure we have a valid post object
         if (!is_object($post) || !isset($post->post_type)) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter REST: Invalid post object');
+            }
             return $response;
         }
 
         try {
             $options = $this->options_manager->get_options();
 
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter REST: Options = ' . print_r($options, true));
+            }
+
             // Check if REST API filtering is enabled
             if (empty($options['apply_to_rest_api'])) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: REST API filtering is disabled');
+                }
                 return $response;
             }
 
             // Check if filtering is enabled for this post type
             if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: Post type ' . $post->post_type . ' is not enabled for filtering');
+                }
                 return $response;
             }
         } catch (Exception $e) {
@@ -201,8 +219,15 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
 
         // Apply filtering with error handling
         try {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter REST: Starting filtering with filter_mode = ' . ($options['filter_mode'] ?? 'not set'));
+            }
+
             // Filter content field if present and enabled
             if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: Filtering content field');
+                }
                 $content = $this->decode_content($response->data['content']['rendered']);
                 $filtered_content = $this->content_filter->filter_field_content(
                     $content,
@@ -210,10 +235,17 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
                     $options
                 );
                 $response->data['content']['rendered'] = $filtered_content;
+
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: Content filtered from ' . strlen($content) . ' to ' . strlen($filtered_content) . ' chars');
+                }
             }
 
             // Filter excerpt field if present and enabled
             if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: Filtering excerpt field');
+                }
                 $excerpt = $this->decode_content($response->data['excerpt']['rendered']);
                 $filtered_excerpt = $this->content_filter->filter_field_content(
                     $excerpt,
@@ -221,6 +253,23 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
                     $options
                 );
                 $response->data['excerpt']['rendered'] = $filtered_excerpt;
+
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: Excerpt filtered from ' . strlen($excerpt) . ' to ' . strlen($filtered_excerpt) . ' chars');
+                }
+            }
+
+            // Filter yoast_head field to remove HTML comments when filtering is enabled
+            if (isset($response->data['yoast_head']) && (!empty($options['apply_to_content']) || !empty($options['apply_to_excerpt']))) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: Filtering yoast_head field');
+                }
+                $original_length = strlen($response->data['yoast_head']);
+                $response->data['yoast_head'] = $this->filter_yoast_head($response->data['yoast_head'], $options);
+
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter REST: yoast_head filtered from ' . $original_length . ' to ' . strlen($response->data['yoast_head']) . ' chars');
+                }
             }
         } catch (Exception $e) {
             if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -269,5 +318,34 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         $content = html_entity_decode($content, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         return $content;
+    }
+
+    /**
+     * Filter yoast_head field to remove HTML comments and optionally HTML tags.
+     *
+     * @param string $yoast_head The yoast_head content to filter.
+     * @param array $options Plugin options.
+     * @return string Filtered yoast_head content.
+     */
+    private function filter_yoast_head($yoast_head, $options) {
+        if (!is_string($yoast_head)) {
+            return $yoast_head;
+        }
+
+        // Always remove HTML comments from yoast_head when filtering is enabled
+        $yoast_head = preg_replace('/<!--.*?-->/s', '', $yoast_head);
+
+        // Apply additional filtering based on filter mode
+        $filter_mode = $options['filter_mode'] ?? 'strip_all';
+
+        if (in_array($filter_mode, ['strip_all', 'strip_html'])) {
+            // For strip modes, remove all HTML tags but preserve the content
+            $yoast_head = strip_tags($yoast_head);
+        } elseif (in_array($filter_mode, ['markdown', 'convert_to_markdown'])) {
+            // For markdown mode, convert HTML to markdown and remove comments
+            $yoast_head = $this->content_filter->filter_field_content($yoast_head, 'yoast_head', $options);
+        }
+
+        return trim($yoast_head);
     }
 }
