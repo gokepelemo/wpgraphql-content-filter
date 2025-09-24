@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.24] - 2025-09-23
+
+### Added
+
+- **yoast_head Filtering**: Added filtering for `yoast_head` field to remove HTML comments when any filtering mode is enabled
+- **Enhanced Debug Logging**: Added comprehensive debug logging throughout REST API filtering process for troubleshooting
+- **Filter Mode Compatibility**: Added support for both legacy and current filter mode values (`'strip_html'`/`'strip_all'`, `'convert_to_markdown'`/`'markdown'`)
+
+### Fixed
+
+- **Network Admin Settings**: Fixed blank page issue when saving network admin settings by correcting form fields to match actual plugin options
+- **Network Form Fields**: Added missing `allow_site_overrides` field that the save handler was expecting
+- **Field Validation**: Removed processing of non-existent fields (`enable_cache`, `cache_ttl`, `batch_size`) that were causing save errors
+- **Filter Mode Processing**: Fixed content filtering to support both old and new filter mode values for backward compatibility
+
+### Enhanced
+
+- **Network Admin Interface**: Completely rebuilt network settings form with proper field validation and conditional display
+- **Error Handling**: Improved error handling and debugging capabilities in REST API hook manager
+- **Content Processing**: Added dedicated `filter_yoast_head()` method for cleaning meta tag HTML comments
+
+### Technical
+
+- **Settings Validation**: Updated sanitize_settings method to match actual plugin options structure
+- **Network Settings Handler**: Fixed `handle_network_settings_save()` to only process valid plugin fields
+- **Debug Infrastructure**: Added extensive debug logging to help identify filtering issues in production
+
+## [2.1.23] - 2025-09-23
+
+### Fixed
+
+- **Filter Mode Compatibility**: Fixed core issue where `filter_mode: 'strip_html'` wasn't being processed because switch statement only looked for `'strip_all'`
+- **Convert to Markdown**: Fixed same compatibility issue where `'convert_to_markdown'` wasn't recognized, only `'markdown'`
+- **Network Admin Settings**: Fixed blank page issue in network admin settings save handler
+- **Content Filtering Logic**: Added support for both old and new filter mode values in content filter switch statement
+
+### Enhanced
+
+- **Backward Compatibility**: Maintained support for existing configurations while adding new filter mode values
+- **Error Handling**: Improved error handling in network settings save process
+
 ## [2.1.19] - 2025-01-09
 
 ### Fixed
