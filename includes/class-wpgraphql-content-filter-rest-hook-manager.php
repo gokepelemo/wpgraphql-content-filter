@@ -74,8 +74,14 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Defer hook registration to after init to ensure WordPress functions are available
+        // Emergency fix: Try both approaches to ensure hooks are registered
         add_action('wp_loaded', array($this, 'maybe_register_hooks'));
+        add_action('init', array($this, 'emergency_register_hooks'), 20);
+
+        // Also try immediate registration if functions are available
+        if (function_exists('add_filter') && function_exists('get_post_types')) {
+            $this->register_rest_hooks();
+        }
     }
 
     /**
@@ -86,6 +92,19 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
     public function maybe_register_hooks() {
         if ($this->should_load()) {
             $this->register_hooks();
+        }
+    }
+
+    /**
+     * Emergency register hooks - try multiple approaches.
+     *
+     * @return void
+     */
+    public function emergency_register_hooks() {
+        // Force hook registration regardless of conditions for debugging
+        if (function_exists('add_filter') && function_exists('get_post_types')) {
+            error_log('WPGraphQL Content Filter: Emergency hook registration triggered');
+            $this->register_rest_hooks();
         }
     }
 
@@ -123,18 +142,17 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
     public function register_rest_hooks() {
         // Early return if WordPress core functions aren't available yet
         if (!function_exists('add_filter')) {
+            error_log('WPGraphQL Content Filter: add_filter not available yet');
             return;
         }
 
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('WPGraphQL Content Filter: register_rest_hooks called');
-        }
+        // Always log this for debugging
+        error_log('WPGraphQL Content Filter: register_rest_hooks called - FORCING REGISTRATION');
 
         $post_types = $this->get_rest_post_types();
 
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('WPGraphQL Content Filter: Registering hooks for post types: ' . implode(', ', $post_types));
-        }
+        // Always log post types for debugging
+        error_log('WPGraphQL Content Filter: Registering hooks for post types: ' . implode(', ', $post_types));
 
         foreach ($post_types as $post_type) {
             $this->add_rest_response_filter($post_type);
@@ -162,6 +180,7 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @param string $post_type The post type to filter.
      */
     private function add_rest_response_filter($post_type) {
+        error_log("WPGraphQL Content Filter: Adding filter for rest_prepare_{$post_type}");
         add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 5, 3);
     }
     
@@ -174,16 +193,12 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @return WP_REST_Response
      */
     public function filter_rest_response($response, $post, $request) {
-        // Debug logging if WP_DEBUG is enabled
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('WPGraphQL Content Filter: filter_rest_response called for post ID: ' . ($post->ID ?? 'unknown'));
-        }
+        // Always log this for debugging
+        error_log('WPGraphQL Content Filter: filter_rest_response called for post ID: ' . ($post->ID ?? 'unknown'));
 
         // Early return if dependencies aren't properly initialized
         if (!$this->options_manager || !$this->content_filter) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('WPGraphQL Content Filter: Dependencies not initialized - options_manager: ' . ($this->options_manager ? 'yes' : 'no') . ', content_filter: ' . ($this->content_filter ? 'yes' : 'no'));
-            }
+            error_log('WPGraphQL Content Filter: Dependencies not initialized - options_manager: ' . ($this->options_manager ? 'yes' : 'no') . ', content_filter: ' . ($this->content_filter ? 'yes' : 'no'));
             return $response;
         }
 
@@ -195,33 +210,25 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         try {
             $options = $this->options_manager->get_options();
 
-            // Debug logging for options
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('WPGraphQL Content Filter: Options - filter_mode: ' . ($options['filter_mode'] ?? 'none') .
-                         ', apply_to_rest_api: ' . ($options['apply_to_rest_api'] ?? 'no') .
-                         ', apply_to_content: ' . ($options['apply_to_content'] ?? 'no'));
-            }
+            // Always log options for debugging
+            error_log('WPGraphQL Content Filter: Options - filter_mode: ' . ($options['filter_mode'] ?? 'none') .
+                     ', apply_to_rest_api: ' . ($options['apply_to_rest_api'] ?? 'no') .
+                     ', apply_to_content: ' . ($options['apply_to_content'] ?? 'no'));
 
             // Check if REST API filtering is enabled
             if (empty($options['apply_to_rest_api'])) {
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('WPGraphQL Content Filter: REST API filtering disabled');
-                }
+                error_log('WPGraphQL Content Filter: REST API filtering disabled');
                 return $response;
             }
 
             // Check if filtering is enabled for this post type
             if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('WPGraphQL Content Filter: Post type ' . $post->post_type . ' not enabled for filtering');
-                }
+                error_log('WPGraphQL Content Filter: Post type ' . $post->post_type . ' not enabled for filtering');
                 return $response;
             }
         } catch (Exception $e) {
-            // Log error if WP_DEBUG is enabled
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('WPGraphQL Content Filter REST Error: ' . $e->getMessage());
-            }
+            // Always log errors for debugging
+            error_log('WPGraphQL Content Filter REST Error: ' . $e->getMessage());
             return $response;
         }
 
