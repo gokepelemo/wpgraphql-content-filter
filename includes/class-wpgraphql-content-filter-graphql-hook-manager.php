@@ -161,17 +161,12 @@ class WPGraphQL_Content_Filter_GraphQL_Hook_Manager implements WPGraphQL_Content
      * @return mixed
      */
     public function filter_graphql_content_field($value, $source, $args, $context) {
-        // Always log GraphQL filtering attempts
-        error_log('WPGraphQL Content Filter: GraphQL content filter called - Post ID: ' . ($source->ID ?? 'unknown') . ', Post Type: ' . ($source->post_type ?? 'unknown'));
-
         if (!is_string($value)) {
-            error_log('WPGraphQL Content Filter: GraphQL content value is not a string, skipping');
             return $value;
         }
 
         // Check if filtering is enabled for this post type
         if (isset($source->post_type) && !$this->options_manager->is_post_type_enabled($source->post_type)) {
-            error_log('WPGraphQL Content Filter: GraphQL post type ' . $source->post_type . ' not enabled for filtering');
             return $value;
         }
 

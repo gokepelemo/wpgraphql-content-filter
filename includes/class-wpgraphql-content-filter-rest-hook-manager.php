@@ -74,14 +74,8 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         $this->options_manager = $options_manager;
         $this->content_filter = $content_filter;
 
-        // Emergency fix: Try both approaches to ensure hooks are registered
+        // Register hooks via wp_loaded to ensure all WordPress functions are available
         add_action('wp_loaded', array($this, 'maybe_register_hooks'));
-        add_action('init', array($this, 'emergency_register_hooks'), 20);
-
-        // Also try immediate registration if functions are available
-        if (function_exists('add_filter') && function_exists('get_post_types')) {
-            $this->register_rest_hooks();
-        }
     }
 
     /**
@@ -95,18 +89,6 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         }
     }
 
-    /**
-     * Emergency register hooks - try multiple approaches.
-     *
-     * @return void
-     */
-    public function emergency_register_hooks() {
-        // Force hook registration regardless of conditions for debugging
-        if (function_exists('add_filter') && function_exists('get_post_types')) {
-            error_log('WPGraphQL Content Filter: Emergency hook registration triggered');
-            $this->register_rest_hooks();
-        }
-    }
 
     /**
      * Register hooks for REST API integration.
@@ -142,33 +124,14 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
     public function register_rest_hooks() {
         // Early return if WordPress core functions aren't available yet
         if (!function_exists('add_filter')) {
-            error_log('WPGraphQL Content Filter: add_filter not available yet');
             return;
         }
 
-        // Always log this for debugging
-        error_log('WPGraphQL Content Filter: register_rest_hooks called - FORCING REGISTRATION');
-
         $post_types = $this->get_rest_post_types();
-
-        // Always log post types for debugging
-        error_log('WPGraphQL Content Filter: Registering hooks for post types: ' . implode(', ', $post_types));
 
         foreach ($post_types as $post_type) {
             $this->add_rest_response_filter($post_type);
         }
-
-        // Emergency test: Add a hook that should definitely fire
-        add_filter('rest_request_before_callbacks', function($response, $handler, $request) {
-            error_log('WPGraphQL Content Filter: REST request detected - ' . $request->get_route());
-            return $response;
-        }, 10, 3);
-
-        // Also try the more general rest_pre_serve_request hook
-        add_filter('rest_pre_serve_request', function($served, $result, $request, $server) {
-            error_log('WPGraphQL Content Filter: REST pre_serve_request - route: ' . $request->get_route());
-            return $served;
-        }, 10, 4);
     }
     
     /**
@@ -192,33 +155,7 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @param string $post_type The post type to filter.
      */
     private function add_rest_response_filter($post_type) {
-        error_log("WPGraphQL Content Filter: Adding filter for rest_prepare_{$post_type}");
         add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 10, 3);
-
-        // Emergency test: Add a simple test filter that forces content replacement
-        add_filter("rest_prepare_{$post_type}", function($response, $post, $request) use ($post_type) {
-            error_log("WPGraphQL Content Filter: EMERGENCY TEST FILTER CALLED for {$post_type} - Post ID: " . ($post->ID ?? 'unknown'));
-            if (isset($response->data['content']['rendered'])) {
-                // Force replace a small part of content to test if this works at all
-                $response->data['content']['rendered'] = str_replace('<p>', '<p>[FILTERED] ', $response->data['content']['rendered']);
-                error_log("WPGraphQL Content Filter: EMERGENCY TEST - Content modified for post {$post->ID}");
-            }
-            return $response;
-        }, 1, 3);
-
-        // Test our main method directly
-        add_filter("rest_prepare_{$post_type}", function($response, $post, $request) use ($post_type) {
-            error_log("WPGraphQL Content Filter: TESTING MAIN METHOD CALL for {$post_type}");
-            // Try to call our main method directly to test if it works
-            $instance = WPGraphQL_Content_Filter_REST_Hook_Manager::get_instance();
-            if (method_exists($instance, 'filter_rest_response')) {
-                error_log("WPGraphQL Content Filter: Main method exists, calling it directly");
-                return $instance->filter_rest_response($response, $post, $request);
-            } else {
-                error_log("WPGraphQL Content Filter: ERROR - Main method does not exist!");
-                return $response;
-            }
-        }, 15, 3);
     }
     
     /**
@@ -230,12 +167,11 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      * @return WP_REST_Response
      */
     public function filter_rest_response($response, $post, $request) {
-        // Always log this for debugging
-        error_log('WPGraphQL Content Filter: filter_rest_response called for post ID: ' . ($post->ID ?? 'unknown'));
-
         // Early return if dependencies aren't properly initialized
         if (!$this->options_manager || !$this->content_filter) {
-            error_log('WPGraphQL Content Filter: Dependencies not initialized - options_manager: ' . ($this->options_manager ? 'yes' : 'no') . ', content_filter: ' . ($this->content_filter ? 'yes' : 'no'));
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Dependencies not initialized');
+            }
             return $response;
         }
 
@@ -247,25 +183,19 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         try {
             $options = $this->options_manager->get_options();
 
-            // Always log options for debugging
-            error_log('WPGraphQL Content Filter: Options - filter_mode: ' . ($options['filter_mode'] ?? 'none') .
-                     ', apply_to_rest_api: ' . ($options['apply_to_rest_api'] ?? 'no') .
-                     ', apply_to_content: ' . ($options['apply_to_content'] ?? 'no'));
-
             // Check if REST API filtering is enabled
             if (empty($options['apply_to_rest_api'])) {
-                error_log('WPGraphQL Content Filter: REST API filtering disabled');
                 return $response;
             }
 
             // Check if filtering is enabled for this post type
             if (!$this->options_manager->is_post_type_enabled($post->post_type)) {
-                error_log('WPGraphQL Content Filter: Post type ' . $post->post_type . ' not enabled for filtering');
                 return $response;
             }
         } catch (Exception $e) {
-            // Always log errors for debugging
-            error_log('WPGraphQL Content Filter REST Error: ' . $e->getMessage());
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter REST Error: ' . $e->getMessage());
+            }
             return $response;
         }
 
@@ -273,32 +203,17 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         try {
             // Filter content field if present and enabled
             if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
-                error_log('WPGraphQL Content Filter: About to filter content field, original length: ' . strlen($response->data['content']['rendered']));
-
                 $content = $this->decode_content($response->data['content']['rendered']);
-                error_log('WPGraphQL Content Filter: Decoded content, length: ' . strlen($content));
-
                 $filtered_content = $this->content_filter->filter_field_content(
                     $content,
                     'content',
                     $options
                 );
-
-                error_log('WPGraphQL Content Filter: Filtered content length: ' . strlen($filtered_content));
-                error_log('WPGraphQL Content Filter: Original starts with: ' . substr($content, 0, 100));
-                error_log('WPGraphQL Content Filter: Filtered starts with: ' . substr($filtered_content, 0, 100));
-
                 $response->data['content']['rendered'] = $filtered_content;
-            } else {
-                error_log('WPGraphQL Content Filter: Content filtering skipped - content field exists: ' . (isset($response->data['content']['rendered']) ? 'yes' : 'no') . ', apply_to_content: ' . ($options['apply_to_content'] ?? 'not set'));
             }
 
             // Filter excerpt field if present and enabled
             if (isset($response->data['excerpt']['rendered']) && !empty($options['apply_to_excerpt'])) {
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('WPGraphQL Content Filter: Filtering excerpt field');
-                }
-                
                 $excerpt = $this->decode_content($response->data['excerpt']['rendered']);
                 $filtered_excerpt = $this->content_filter->filter_field_content(
                     $excerpt,
@@ -308,10 +223,8 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
                 $response->data['excerpt']['rendered'] = $filtered_excerpt;
             }
         } catch (Exception $e) {
-            // Log error if WP_DEBUG is enabled
             if (defined('WP_DEBUG') && WP_DEBUG) {
                 error_log('WPGraphQL Content Filter REST Filtering Error: ' . $e->getMessage());
-                error_log('WPGraphQL Content Filter REST Filtering Error Trace: ' . $e->getTraceAsString());
             }
             // Return original response if filtering fails
         }
