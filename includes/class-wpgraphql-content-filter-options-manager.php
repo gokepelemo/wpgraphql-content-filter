@@ -130,12 +130,7 @@ class WPGraphQL_Content_Filter_Options_Manager {
         
         $network_options = $this->get_network_options();
         
-        // If network settings are enforced, use them exclusively
-        if (!empty($network_options['enforce_network_settings'])) {
-            return array_merge($defaults, $network_options);
-        }
-        
-        // If site overrides are not allowed, use network settings
+        // If site overrides are not allowed, use network settings exclusively
         if (empty($network_options['allow_site_overrides'])) {
             return array_merge($defaults, $network_options);
         }
@@ -170,8 +165,7 @@ class WPGraphQL_Content_Filter_Options_Manager {
         }
         
         $defaults = array_merge($this->get_default_options(), [
-            'allow_site_overrides' => true,
-            'enforce_network_settings' => false
+            'allow_site_overrides' => true
         ]);
         
         $this->network_options_cache = get_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $defaults);
@@ -414,8 +408,7 @@ class WPGraphQL_Content_Filter_Options_Manager {
         if (is_multisite() && $network_wide) {
             // Set network-wide default options
             $network_defaults = array_merge($default_options, [
-                'allow_site_overrides' => true,
-                'enforce_network_settings' => false
+                'allow_site_overrides' => true
             ]);
             
             add_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_defaults);

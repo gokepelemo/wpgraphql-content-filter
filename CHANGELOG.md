@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- **Redundant Network Setting**: Removed the "Enforce Network Settings" option from network admin interface as it was functionally identical to the inverse of "Allow Site Overrides"
+
+### Improved
+
+- **Network Settings Logic**: Simplified network enforcement logic to use only "Allow Site Overrides" setting, eliminating confusion and redundancy
+- **Code Maintainability**: Streamlined codebase by removing duplicate enforcement checks and consolidating logic
+- **User Experience**: Clearer network admin interface with single, intuitive setting for site override control
+
+### Technical
+
+- **Options Manager**: Updated to use only `allow_site_overrides` logic instead of checking both `enforce_network_settings` and `allow_site_overrides`
+- **Admin Interface**: Removed redundant UI field and updated enforcement check methods
+- **Default Options**: Cleaned up network option defaults to remove deprecated `enforce_network_settings` field
+- **Logic Consistency**: Ensured consistent enforcement logic across admin interface and options manager
+
 ## [2.1.25] - 2025-09-23
 
 ### Fixed

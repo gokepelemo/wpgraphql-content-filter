@@ -358,8 +358,7 @@ class WPGraphQL_Content_Filter {
         if (is_multisite() && $network_wide) {
             // Set network-wide default options
             $network_defaults = array_merge($default_options, [
-                'allow_site_overrides' => true,
-                'enforce_network_settings' => false
+                'allow_site_overrides' => true
             ]);
             
             add_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_defaults);

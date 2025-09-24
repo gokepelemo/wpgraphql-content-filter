@@ -867,7 +867,6 @@ class WPGraphQL_Content_Filter_Admin {
         // The save handler is registered with network_admin_edit_wpgraphql_content_filter_network
 
         $network_options = get_site_option('wpgraphql_content_filter_network_options', []);
-        $enforce_network_settings = isset($network_options['enforce_network_settings']) ? $network_options['enforce_network_settings'] : false;
         ?>
         <div class="wrap">
             <h1><?php echo esc_html(get_admin_page_title()); ?></h1>
@@ -882,19 +881,6 @@ class WPGraphQL_Content_Filter_Admin {
                 <?php wp_nonce_field('wpgraphql_network_save', 'wpgraphql_content_filter_network_nonce'); ?>
                 
                 <table class="form-table">
-                    <tr>
-                        <th scope="row">
-                            <label for="enforce_network_settings">
-                                <?php _e('Enforce Network Settings', 'wpgraphql-content-filter'); ?>
-                            </label>
-                        </th>
-                        <td>
-                            <input type="checkbox" id="enforce_network_settings" name="enforce_network_settings" value="1" <?php checked($enforce_network_settings, 1); ?> />
-                            <p class="description">
-                                <?php _e('When enabled, individual sites cannot override these network settings.', 'wpgraphql-content-filter'); ?>
-                            </p>
-                        </td>
-                    </tr>
                 </table>
 
                 <h2><?php _e('Default Network Settings', 'wpgraphql-content-filter'); ?></h2>
@@ -1139,7 +1125,6 @@ class WPGraphQL_Content_Filter_Admin {
             }
 
             // Save multisite-specific settings
-            $network_options['enforce_network_settings'] = isset($_POST['enforce_network_settings']) ? 1 : 0;
             $network_options['allow_site_overrides'] = isset($_POST['allow_site_overrides']) ? 1 : 0;
 
             // Process each field from the actual default options
@@ -1435,9 +1420,9 @@ class WPGraphQL_Content_Filter_Admin {
         if (!is_multisite()) {
             return false;
         }
-        
+
         $network_options = get_site_option('wpgraphql_content_filter_network_options', []);
-        return isset($network_options['enforce_network_settings']) && $network_options['enforce_network_settings'];
+        return !isset($network_options['allow_site_overrides']) || !$network_options['allow_site_overrides'];
     }
 
     /**
@@ -1450,8 +1435,8 @@ class WPGraphQL_Content_Filter_Admin {
         
         if ($this->are_network_settings_enforced()) {
             $network_options = get_site_option('wpgraphql_content_filter_network_options', []);
-            // Remove the enforcement flag from the options
-            unset($network_options['enforce_network_settings']);
+            // Remove multisite-specific flags from the options that are merged
+            unset($network_options['allow_site_overrides']);
             return array_merge($site_options, $network_options);
         }
         
