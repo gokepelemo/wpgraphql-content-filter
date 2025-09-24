@@ -244,6 +244,7 @@ class WPGraphQL_Content_Filter_Content_Filter {
         $filter_mode = $options['filter_mode'] ?? 'none';
         
         switch ($filter_mode) {
+            case 'strip_html':
             case 'strip_all':
                 return $this->strip_all_tags($content, $options['preserve_line_breaks'] ?? true);
                 
