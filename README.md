@@ -4,7 +4,7 @@ A WordPress plugin that cleans and filters HTML content in both WPGraphQL and RE
 
 This plugin is particularly valuable in two scenarios: when migrating from a traditional themed WordPress site to a headless architecture, and when a themed WordPress site needs to serve clean content to external applications via API. In both cases, existing content may contain unwanted HTML markup that needs to be filtered or sanitized before being consumed by other systems.
 
-**Version 2.1.8** features a completely refactored modular architecture with professional-grade HTML processing libraries. Integrated `league/html-to-markdown` for robust HTML-to-Markdown conversion and `ezyang/htmlpurifier` for comprehensive HTML sanitization with XSS protection. The plugin now handles all HTML tag attributes completely, including id, classes, data-* attributes, and other complex attributes.
+**Version 2.1.25** features a completely refactored modular architecture with professional-grade HTML processing libraries. Integrated `league/html-to-markdown` for robust HTML-to-Markdown conversion and `ezyang/htmlpurifier` for comprehensive HTML sanitization with XSS protection. The plugin now handles all HTML tag attributes completely, including id, classes, data-* attributes, and other complex attributes. Recent versions include enhanced multisite network administration with improved error handling and yoast_head field filtering support.
 
 The plugin was developed using Claude 4 Sonnet.
 
@@ -38,6 +38,7 @@ The plugin was developed using Claude 4 Sonnet.
   - Works with WordPress REST API for all public post types
   - Filters the main `content` field in place
   - Filters the `excerpt` field (optional)
+  - Filters the `yoast_head` field (removes HTML comments and applies content filtering)
   - Supports custom post types out of the box
 
 - **Performance Optimizations:**
@@ -79,6 +80,8 @@ The plugin was developed using Claude 4 Sonnet.
 
 **Note:** While the plugin can function without WPGraphQL for REST API filtering only, it is designed primarily for WPGraphQL integration and will display notices if WPGraphQL is not installed. The Composer dependencies are bundled with release packages, so no manual installation is required.
 
+**Multisite Support:** Full network administration capabilities are available for WordPress multisite installations, with enhanced error handling and debug logging in recent versions.
+
 ## Usage
 
 ### Admin Configuration
@@ -105,8 +108,9 @@ For multisite installations, network administrators can access **Network Admin >
 - Enable enforcement to prevent individual sites from overriding settings
 - Configure all the same options available at the site level
 - Bulk synchronize settings across all sites in the network
+- Access enhanced error handling and debug logging for troubleshooting
 
-The network admin interface includes the same conditional UI behavior, ensuring a consistent experience across both site-level and network-level administration.
+The network admin interface includes the same conditional UI behavior, ensuring a consistent experience across both site-level and network-level administration. Recent improvements include better error handling, comprehensive debug logging, and optimized form processing to prevent blank page issues.
 
 ### Performance Settings
 
@@ -179,7 +183,8 @@ GET /wp-json/wp/v2/products
   "id": 123,
   "title": {"rendered": "Post Title"},
   "content": {"rendered": "Filtered content here..."},  # Filtered
-  "excerpt": {"rendered": "Filtered excerpt..."}        # Filtered if enabled
+  "excerpt": {"rendered": "Filtered excerpt..."},        # Filtered if enabled
+  "yoast_head": "Filtered meta tags..."                  # Filtered (HTML comments removed)
 }
 ```
 
