@@ -193,7 +193,7 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
      */
     private function add_rest_response_filter($post_type) {
         error_log("WPGraphQL Content Filter: Adding filter for rest_prepare_{$post_type}");
-        add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 5, 3);
+        add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 10, 3);
 
         // Emergency test: Add a simple test filter that forces content replacement
         add_filter("rest_prepare_{$post_type}", function($response, $post, $request) use ($post_type) {
@@ -205,6 +205,20 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
             }
             return $response;
         }, 1, 3);
+
+        // Test our main method directly
+        add_filter("rest_prepare_{$post_type}", function($response, $post, $request) use ($post_type) {
+            error_log("WPGraphQL Content Filter: TESTING MAIN METHOD CALL for {$post_type}");
+            // Try to call our main method directly to test if it works
+            $instance = WPGraphQL_Content_Filter_REST_Hook_Manager::get_instance();
+            if (method_exists($instance, 'filter_rest_response')) {
+                error_log("WPGraphQL Content Filter: Main method exists, calling it directly");
+                return $instance->filter_rest_response($response, $post, $request);
+            } else {
+                error_log("WPGraphQL Content Filter: ERROR - Main method does not exist!");
+                return $response;
+            }
+        }, 15, 3);
     }
     
     /**
@@ -259,22 +273,24 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         try {
             // Filter content field if present and enabled
             if (isset($response->data['content']['rendered']) && !empty($options['apply_to_content'])) {
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('WPGraphQL Content Filter: Filtering content field, original length: ' . strlen($response->data['content']['rendered']));
-                }
-                
+                error_log('WPGraphQL Content Filter: About to filter content field, original length: ' . strlen($response->data['content']['rendered']));
+
                 $content = $this->decode_content($response->data['content']['rendered']);
+                error_log('WPGraphQL Content Filter: Decoded content, length: ' . strlen($content));
+
                 $filtered_content = $this->content_filter->filter_field_content(
                     $content,
                     'content',
                     $options
                 );
-                
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('WPGraphQL Content Filter: Filtered content length: ' . strlen($filtered_content));
-                }
-                
+
+                error_log('WPGraphQL Content Filter: Filtered content length: ' . strlen($filtered_content));
+                error_log('WPGraphQL Content Filter: Original starts with: ' . substr($content, 0, 100));
+                error_log('WPGraphQL Content Filter: Filtered starts with: ' . substr($filtered_content, 0, 100));
+
                 $response->data['content']['rendered'] = $filtered_content;
+            } else {
+                error_log('WPGraphQL Content Filter: Content filtering skipped - content field exists: ' . (isset($response->data['content']['rendered']) ? 'yes' : 'no') . ', apply_to_content: ' . ($options['apply_to_content'] ?? 'not set'));
             }
 
             // Filter excerpt field if present and enabled
