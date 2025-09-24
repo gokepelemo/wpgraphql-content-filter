@@ -93,7 +93,7 @@ class WPGraphQL_Content_Filter_Admin {
         // Add multisite network admin support
         if (is_multisite()) {
             add_action('network_admin_menu', [$this, 'add_network_admin_menu']);
-            add_action('network_admin_edit_wpgraphql_content_filter_network', [$this, 'handle_network_settings_save']);
+            add_action('network_admin_edit_wpgraphql_network_save', [$this, 'handle_network_settings_save']);
             add_action('wp_ajax_wpgraphql_content_filter_sync_network_settings', [$this, 'handle_network_sync_ajax']);
         }
     }
@@ -863,10 +863,9 @@ class WPGraphQL_Content_Filter_Admin {
      * @return void
      */
     public function render_network_settings_page() {
-        if (isset($_POST['submit'])) {
-            $this->handle_network_settings_save();
-        }
-        
+        // Network admin forms should use the action parameter for proper processing
+        // The save handler is registered with network_admin_edit_wpgraphql_content_filter_network
+
         $network_options = get_site_option('wpgraphql_content_filter_network_options', []);
         $enforce_network_settings = isset($network_options['enforce_network_settings']) ? $network_options['enforce_network_settings'] : false;
         ?>
@@ -879,8 +878,8 @@ class WPGraphQL_Content_Filter_Admin {
                 </div>
             <?php endif; ?>
 
-            <form method="post" action="">
-                <?php wp_nonce_field('wpgraphql_content_filter_network_save', 'wpgraphql_content_filter_network_nonce'); ?>
+            <form method="post" action="<?php echo esc_url(network_admin_url('edit.php?action=wpgraphql_network_save')); ?>">
+                <?php wp_nonce_field('wpgraphql_network_save', 'wpgraphql_content_filter_network_nonce'); ?>
                 
                 <table class="form-table">
                     <tr>
@@ -1096,48 +1095,105 @@ class WPGraphQL_Content_Filter_Admin {
      * @return void
      */
     public function handle_network_settings_save() {
-        if (!check_admin_referer('wpgraphql_content_filter_network_save', 'wpgraphql_content_filter_network_nonce')) {
-            wp_die(__('Security check failed.', 'wpgraphql-content-filter'));
+        // Add comprehensive error logging
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WPGraphQL Content Filter: Network settings save started');
+            error_log('WPGraphQL Content Filter: POST data = ' . print_r($_POST, true));
         }
 
-        if (!current_user_can('manage_network_options')) {
-            wp_die(__('Insufficient permissions.', 'wpgraphql-content-filter'));
-        }
-
-        // Get default options structure to ensure we only process valid fields
-        $defaults = $this->options_manager->get_default_options();
-        $network_options = [];
-
-        // Save multisite-specific settings
-        $network_options['enforce_network_settings'] = isset($_POST['enforce_network_settings']) ? 1 : 0;
-        $network_options['allow_site_overrides'] = isset($_POST['allow_site_overrides']) ? 1 : 0;
-
-        // Process each field from the actual default options
-        foreach ($defaults as $field => $default_value) {
-            if ($field === 'enabled_post_types') {
-                // Handle array field specially
-                if (isset($_POST[$field]) && is_array($_POST[$field])) {
-                    $network_options[$field] = array_map('sanitize_text_field', $_POST[$field]);
-                } else {
-                    $network_options[$field] = $default_value;
-                }
-            } elseif (is_bool($default_value)) {
-                // Handle boolean fields
-                $network_options[$field] = isset($_POST[$field]) ? 1 : 0;
-            } else {
-                // Handle text fields
-                $network_options[$field] = isset($_POST[$field]) ? sanitize_text_field($_POST[$field]) : $default_value;
+        try {
+            // Debug: Show what we received
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Checking nonce - expected: wpgraphql_content_filter_network_nonce');
+                error_log('WPGraphQL Content Filter: Received nonce: ' . ($_POST['wpgraphql_content_filter_network_nonce'] ?? 'NOT_SET'));
             }
+
+            if (!check_admin_referer('wpgraphql_network_save', 'wpgraphql_content_filter_network_nonce')) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Nonce check failed');
+                }
+                wp_die(__('Security check failed.', 'wpgraphql-content-filter'));
+            }
+
+            if (!current_user_can('manage_network_options')) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Insufficient permissions');
+                }
+                wp_die(__('Insufficient permissions.', 'wpgraphql-content-filter'));
+            }
+
+            // Check if options manager exists
+            if (!$this->options_manager) {
+                if (defined('WP_DEBUG') && WP_DEBUG) {
+                    error_log('WPGraphQL Content Filter: Options manager not initialized');
+                }
+                wp_die(__('Plugin not properly initialized.', 'wpgraphql-content-filter'));
+            }
+
+            // Get default options structure to ensure we only process valid fields
+            $defaults = $this->options_manager->get_default_options();
+            $network_options = [];
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Default options = ' . print_r($defaults, true));
+            }
+
+            // Save multisite-specific settings
+            $network_options['enforce_network_settings'] = isset($_POST['enforce_network_settings']) ? 1 : 0;
+            $network_options['allow_site_overrides'] = isset($_POST['allow_site_overrides']) ? 1 : 0;
+
+            // Process each field from the actual default options
+            foreach ($defaults as $field => $default_value) {
+                if ($field === 'enabled_post_types') {
+                    // Handle array field specially
+                    if (isset($_POST[$field]) && is_array($_POST[$field])) {
+                        $network_options[$field] = array_map('sanitize_text_field', $_POST[$field]);
+                    } else {
+                        $network_options[$field] = $default_value;
+                    }
+                } elseif (is_bool($default_value)) {
+                    // Handle boolean fields
+                    $network_options[$field] = isset($_POST[$field]) ? 1 : 0;
+                } else {
+                    // Handle text fields
+                    $network_options[$field] = isset($_POST[$field]) ? sanitize_text_field($_POST[$field]) : $default_value;
+                }
+            }
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Final network options = ' . print_r($network_options, true));
+            }
+
+            $result = update_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_options);
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: update_site_option result = ' . ($result ? 'success' : 'failed'));
+            }
+
+            // Clear options cache
+            $this->options_manager->clear_options_cache();
+
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: About to redirect');
+            }
+
+            // Redirect with success message
+            wp_redirect(add_query_arg('updated', '1', network_admin_url('settings.php?page=wpgraphql-content-filter-network')));
+            exit;
+
+        } catch (Exception $e) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Exception in network settings save: ' . $e->getMessage());
+                error_log('WPGraphQL Content Filter: Stack trace: ' . $e->getTraceAsString());
+            }
+            wp_die(__('Error saving network settings: ', 'wpgraphql-content-filter') . esc_html($e->getMessage()));
+        } catch (Error $e) {
+            if (defined('WP_DEBUG') && WP_DEBUG) {
+                error_log('WPGraphQL Content Filter: Fatal error in network settings save: ' . $e->getMessage());
+                error_log('WPGraphQL Content Filter: Stack trace: ' . $e->getTraceAsString());
+            }
+            wp_die(__('Fatal error saving network settings: ', 'wpgraphql-content-filter') . esc_html($e->getMessage()));
         }
-
-        update_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_options);
-
-        // Clear options cache
-        $this->options_manager->clear_options_cache();
-        
-        // Redirect with success message
-        wp_redirect(add_query_arg('updated', '1', network_admin_url('settings.php?page=wpgraphql-content-filter-network')));
-        exit;
     }
 
     /**
