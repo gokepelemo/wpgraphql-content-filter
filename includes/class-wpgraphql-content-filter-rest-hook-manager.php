@@ -157,6 +157,18 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
         foreach ($post_types as $post_type) {
             $this->add_rest_response_filter($post_type);
         }
+
+        // Emergency test: Add a hook that should definitely fire
+        add_filter('rest_request_before_callbacks', function($response, $handler, $request) {
+            error_log('WPGraphQL Content Filter: REST request detected - ' . $request->get_route());
+            return $response;
+        }, 10, 3);
+
+        // Also try the more general rest_pre_serve_request hook
+        add_filter('rest_pre_serve_request', function($served, $result, $request, $server) {
+            error_log('WPGraphQL Content Filter: REST pre_serve_request - route: ' . $request->get_route());
+            return $served;
+        }, 10, 4);
     }
     
     /**
@@ -182,6 +194,17 @@ class WPGraphQL_Content_Filter_REST_Hook_Manager implements WPGraphQL_Content_Fi
     private function add_rest_response_filter($post_type) {
         error_log("WPGraphQL Content Filter: Adding filter for rest_prepare_{$post_type}");
         add_filter("rest_prepare_{$post_type}", [$this, 'filter_rest_response'], 5, 3);
+
+        // Emergency test: Add a simple test filter that forces content replacement
+        add_filter("rest_prepare_{$post_type}", function($response, $post, $request) use ($post_type) {
+            error_log("WPGraphQL Content Filter: EMERGENCY TEST FILTER CALLED for {$post_type} - Post ID: " . ($post->ID ?? 'unknown'));
+            if (isset($response->data['content']['rendered'])) {
+                // Force replace a small part of content to test if this works at all
+                $response->data['content']['rendered'] = str_replace('<p>', '<p>[FILTERED] ', $response->data['content']['rendered']);
+                error_log("WPGraphQL Content Filter: EMERGENCY TEST - Content modified for post {$post->ID}");
+            }
+            return $response;
+        }, 1, 3);
     }
     
     /**
