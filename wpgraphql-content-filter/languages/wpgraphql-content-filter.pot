@@ -1,0 +1,70 @@
+# WPGraphQL Content Filter Language File
+# This file is used for internationalization (i18n) and contains translatable strings.
+# 
+# To generate this file properly, use:
+# wp i18n make-pot . languages/wpgraphql-content-filter.pot
+#
+# For more information about WordPress i18n:
+# https://developer.wordpress.org/apis/handbook/internationalization/
+
+msgid ""
+msgstr ""
+"Project-Id-Version: WPGraphQL Content Filter\n"
+"POT-Creation-Date: 2024-01-01 00:00:00+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: WordPress\n"
+"X-Domain: wpgraphql-content-filter\n"
+
+#: wpgraphql-content-filter.php
+msgid "WPGraphQL Content Filter"
+msgstr ""
+
+#: wpgraphql-content-filter.php
+msgid "Content filtering and processing for WPGraphQL queries"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-admin.php
+msgid "Content Filter Settings"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-admin.php
+msgid "Enable Content Filtering"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-admin.php
+msgid "Enable content filtering for WPGraphQL queries"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-admin.php
+msgid "Cache Lifetime"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-admin.php
+msgid "Cache lifetime in seconds (0 to disable)"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-exceptions.php
+msgid "Content filter error"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-exceptions.php
+msgid "Cache operation failed"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-exceptions.php
+msgid "Configuration error"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-exceptions.php
+msgid "Integration error"
+msgstr ""
+
+#: includes/class-wpgraphql-content-filter-exceptions.php
+msgid "Dependency error"
+msgstr ""

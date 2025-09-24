@@ -399,11 +399,11 @@ class WPGraphQL_Content_Filter_Admin {
         // Get current options for defaults
         $current_options = $this->options_manager->get_options();
 
-        // Sanitize filter_mode - support both old and new values for backward compatibility
-        $allowed_modes = ['strip_all', 'strip_html', 'markdown', 'convert_to_markdown', 'custom', 'none'];
+        // Sanitize filter_mode
+        $allowed_modes = ['strip_all', 'markdown', 'custom', 'none'];
         $sanitized['filter_mode'] = isset($input['filter_mode']) && in_array($input['filter_mode'], $allowed_modes)
             ? sanitize_text_field($input['filter_mode'])
-            : ($current_options['filter_mode'] ?? 'strip_all');
+            : ($current_options['filter_mode'] ?? 'markdown');
 
         // Sanitize boolean fields
         $boolean_fields = [
@@ -415,6 +415,7 @@ class WPGraphQL_Content_Filter_Admin {
             'convert_links',
             'convert_lists',
             'convert_emphasis',
+            'enable_cache',
             'remove_plugin_data_on_uninstall'
         ];
 
@@ -432,6 +433,17 @@ class WPGraphQL_Content_Filter_Admin {
             $sanitized['enabled_post_types'] = array_map('sanitize_text_field', $input['enabled_post_types']);
         } else {
             $sanitized['enabled_post_types'] = $current_options['enabled_post_types'] ?? ['post', 'page'];
+        }
+
+        // Sanitize numeric fields
+        $numeric_fields = [
+            'cache_ttl' => ['min' => 60, 'max' => 86400, 'default' => 3600],
+            'batch_size' => ['min' => 10, 'max' => 1000, 'default' => 100]
+        ];
+
+        foreach ($numeric_fields as $field => $constraints) {
+            $value = isset($input[$field]) ? (int) $input[$field] : $constraints['default'];
+            $sanitized[$field] = max($constraints['min'], min($constraints['max'], $value));
         }
 
         return $sanitized;
@@ -1104,36 +1116,36 @@ class WPGraphQL_Content_Filter_Admin {
             wp_die(__('Insufficient permissions.', 'wpgraphql-content-filter'));
         }
 
-        // Get default options structure to ensure we only process valid fields
-        $defaults = $this->options_manager->get_default_options();
         $network_options = [];
-
-        // Save multisite-specific settings
+        
+        // Save enforcement setting
         $network_options['enforce_network_settings'] = isset($_POST['enforce_network_settings']) ? 1 : 0;
-        $network_options['allow_site_overrides'] = isset($_POST['allow_site_overrides']) ? 1 : 0;
-
-        // Process each field from the actual default options
-        foreach ($defaults as $field => $default_value) {
-            if ($field === 'enabled_post_types') {
-                // Handle array field specially
-                if (isset($_POST[$field]) && is_array($_POST[$field])) {
-                    $network_options[$field] = array_map('sanitize_text_field', $_POST[$field]);
-                } else {
-                    $network_options[$field] = $default_value;
-                }
-            } elseif (is_bool($default_value)) {
-                // Handle boolean fields
-                $network_options[$field] = isset($_POST[$field]) ? 1 : 0;
+        
+        // Save all the regular settings as network defaults
+        $default_fields = [
+            'apply_to_rest_api',
+            'filter_mode', 
+            'apply_to_content',
+            'apply_to_excerpt',
+            'preserve_line_breaks',
+            'convert_headings',
+            'convert_links',
+            'convert_lists',
+            'convert_emphasis',
+            'enable_cache',
+            'cache_ttl',
+            'batch_size'
+        ];
+        
+        foreach ($default_fields as $field) {
+            if (isset($_POST[$field])) {
+                $network_options[$field] = sanitize_text_field($_POST[$field]);
             } else {
-                // Handle text fields
-                $network_options[$field] = isset($_POST[$field]) ? sanitize_text_field($_POST[$field]) : $default_value;
+                $network_options[$field] = 0; // For checkboxes that aren't checked
             }
         }
-
-        update_site_option(WPGRAPHQL_CONTENT_FILTER_NETWORK_OPTIONS, $network_options);
-
-        // Clear options cache
-        $this->options_manager->clear_options_cache();
+        
+        update_site_option('wpgraphql_content_filter_network_options', $network_options);
         
         // Redirect with success message
         wp_redirect(add_query_arg('updated', '1', network_admin_url('settings.php?page=wpgraphql-content-filter-network')));
