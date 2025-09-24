@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.25] - 2025-09-23
+
+### Fixed
+
+- **Network Admin Settings**: Enhanced network admin settings save handler with comprehensive error handling and debugging
+- **Action Name Length**: Shortened network admin action name to prevent WordPress routing issues that caused blank pages
+- **Form Processing**: Updated form action URL and nonce handling for proper WordPress multisite support
+
+### Enhanced
+
+- **Error Handling**: Added extensive exception handling and error logging in network settings save process
+- **Debug Logging**: Added comprehensive debug logging for troubleshooting network settings issues in development
+- **Validation**: Improved error messages and validation in network admin save handler
+
+### Technical
+
+- **Network Admin Action**: Changed action hook from `network_admin_edit_wpgraphql_content_filter_network` to `network_admin_edit_wpgraphql_network_save`
+- **Nonce Handling**: Updated nonce action to match the shortened action name
+- **Exception Handling**: Added try-catch blocks for both Exception and Error classes in network settings handler
+
 ## [2.1.24] - 2025-09-23
 
 ### Added
