@@ -1,0 +1,69 @@
+{
+    "name": "gokepelemo/wpgraphql-content-filter",
+    "description": "WordPress plugin that filters and sanitizes content in WPGraphQL and REST API responses with configurable HTML stripping, Markdown conversion, and custom tag allowlists.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "Goke Pelemo",
+            "email": "goke.pelemo@gmail.com",
+            "homepage": "https://github.com/gokepelemo"
+        }
+    ],
+    "homepage": "https://github.com/gokepelemo/wpgraphql-content-filter",
+    "support": {
+        "issues": "https://github.com/gokepelemo/wpgraphql-content-filter/issues",
+        "source": "https://github.com/gokepelemo/wpgraphql-content-filter"
+    },
+    "keywords": [
+        "wordpress",
+        "wpgraphql",
+        "content-filter",
+        "html-sanitization",
+        "markdown",
+        "rest-api",
+        "multisite"
+    ],
+    "require": {
+        "php": ">=7.4",
+        "league/html-to-markdown": "^5.0",
+        "ezyang/htmlpurifier": "^4.16"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0 || ^10.0",
+        "wp-coding-standards/wpcs": "^3.0",
+        "phpcompatibility/phpcompatibility-wp": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "WPGraphQL\\ContentFilter\\": "includes/"
+        },
+        "files": [
+            "wpgraphql-content-filter.php"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "WPGraphQL\\ContentFilter\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-html coverage",
+        "lint": "phpcs",
+        "lint:fix": "phpcbf",
+        "validate": [
+            "@lint",
+            "@test"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
