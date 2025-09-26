@@ -50,14 +50,45 @@ The plugin was developed using Claude 4 Sonnet.
 
 ## Installation
 
+### Recommended: GitHub Release (Easiest)
+
+1. Download the latest release from [GitHub Releases](https://github.com/gokepelemo/wpgraphql-content-filter/releases)
+2. Upload the plugin ZIP file through WordPress admin (**Plugins > Add New > Upload Plugin**)
+3. Activate the plugin through the 'Plugins' menu
+4. Go to **Settings > GraphQL Content Filter** to configure your filtering options
+
+### Composer Installation
+
+If you manage WordPress plugins with Composer, you can install the plugin directly from Packagist:
+
+```bash
+composer require gokepelemo/wpgraphql-content-filter
+```
+
+Then activate the plugin through the WordPress admin and configure as above.
+
 ### Manual Installation
 
-1. Download the plugin files
-2. Upload the plugin files to `/wp-content/plugins/wpgraphql-content-filter/` directory
+1. Download the complete plugin package from [GitHub Releases](https://github.com/gokepelemo/wpgraphql-content-filter/releases)
+2. Extract the ZIP file and upload the entire `wpgraphql-content-filter` folder to your `/wp-content/plugins/` directory
 3. Activate the plugin through the 'Plugins' menu in WordPress
-4. Go to Settings > GraphQL Content Filter to configure your filtering options
+4. Go to **Settings > GraphQL Content Filter** to configure your filtering options
+
+**Important:** The plugin uses a modular architecture and requires all files to be present:
+- Main plugin file: `wpgraphql-content-filter.php`
+- Core classes in `includes/` directory:
+  - `WPGraphQL_Content_Filter` (main orchestrator)
+  - `WPGraphQL_Content_Filter_Admin` (admin interface)
+  - `WPGraphQL_Content_Filter_Content_Filter` (filtering engine)
+  - `WPGraphQL_Content_Filter_Options_Manager` (settings management)
+  - `WPGraphQL_Content_Filter_REST_Hook_Manager` (REST API integration)
+  - `WPGraphQL_Content_Filter_GraphQL_Hook_Manager` (WPGraphQL integration)
+- Language files in `languages/` directory
+- Test files in `tests/` directory (optional for production)
 
 ### Development Installation
+
+For developers who want to contribute or modify the plugin:
 
 1. Clone the repository:
 
@@ -65,8 +96,14 @@ The plugin was developed using Claude 4 Sonnet.
    git clone https://github.com/gokepelemo/wpgraphql-content-filter.git
    ```
 
-2. Copy to your WordPress plugins directory
-3. Activate and configure as above
+2. Install dependencies:
+
+   ```bash
+   composer install
+   ```
+
+3. Copy to your WordPress plugins directory
+4. Activate and configure as above
 
 ## Requirements
 
@@ -74,11 +111,10 @@ The plugin was developed using Claude 4 Sonnet.
 - PHP 7.4+
 - **WPGraphQL plugin** (required for GraphQL filtering functionality)
 - Custom post types must be registered with WPGraphQL to be filtered in GraphQL (REST API works with all public post types)
-- **Composer dependencies** (automatically included in releases):
-  - `league/html-to-markdown` ^5.0 for professional HTML-to-Markdown conversion
-  - `ezyang/htmlpurifier` ^4.16 for comprehensive HTML sanitization and XSS protection
 
-**Note:** While the plugin can function without WPGraphQL for REST API filtering only, it is designed primarily for WPGraphQL integration and will display notices if WPGraphQL is not installed. The Composer dependencies are bundled with release packages, so no manual installation is required.
+**Dependencies:** The plugin includes all required Composer dependencies (`league/html-to-markdown` and `ezyang/htmlpurifier`) in the release packages, so no manual installation is required.
+
+**Note:** While the plugin can function without WPGraphQL for REST API filtering only, it is designed primarily for WPGraphQL integration and will display notices if WPGraphQL is not installed.
 
 **Multisite Support:** Full network administration capabilities are available for WordPress multisite installations, with enhanced error handling and debug logging in recent versions.
 
